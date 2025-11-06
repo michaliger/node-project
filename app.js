@@ -13,7 +13,7 @@ app.use('/api/series', seriesRoutes);
 app.use('/api/volumes', volumeRoutes);
 app.use('/api/subtitles', subtitleRoutes);
 
-// 404 – אם לא נמצא ראוט
+// 404
 app.all('*', (req, res) => {
   res.status(404).json({
     status: 'fail',

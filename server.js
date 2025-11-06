@@ -1,16 +1,13 @@
-const mongoose = require('mongoose');
+require('dotenv').config();
+require('colors'); 
+
 const app = require('./app');
+const connectDB = require('./config/db');
 
-const DB = 'mongodb://127.0.0.1:27017/library-db'; // שנה לפי הצורך
+connectDB();
 
-mongoose.connect(DB, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => {
-  console.log('DB מחובר בהצלחה!');
-});
+const port = process.env.PORT || 3000;
 
-const port = 3000;
 app.listen(port, () => {
-  console.log(`שרת פועל על פורט ${port}...`);
+  console.log(`שרת רץ על פורט ${port} במצב ${process.env.NODE_ENV}`.yellow.bold);
 });

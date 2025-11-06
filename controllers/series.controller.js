@@ -1,6 +1,6 @@
 // controllers/series.controller.js
 const Series = require('../models/series.model');
-const { catchAsync } = require('../utils/errorHandler');
+const { catchAsync } = require('../utils/error.handler');
 
 // GET /api/series
 const getAllSeries = catchAsync(async (req, res) => {

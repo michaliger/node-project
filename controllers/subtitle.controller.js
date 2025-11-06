@@ -1,6 +1,6 @@
 // controllers/subtitle.controller.js
 const Subtitle = require('../models/subtitle.model');
-const { catchasync } = require('../utils/errorhandler');
+const { catchasync } = require('../utils/error.handler');
 
 const getallsubtitles = catchasync(async (req, res) => {
   const subtitles = await Subtitle.find()

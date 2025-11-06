@@ -1,6 +1,6 @@
 // controllers/volume.controller.js
 const Volume = require('../models/volume.model');
-const { catchasync } = require('../utils/errorhandler');
+const { catchasync } = require('../utils/error.handler');
 
 const getallvolumes = catchasync(async (req, res) => {
   const volumes = await Volume.find()

@@ -1,9 +1,9 @@
 // controllers/series.controller.js
 const Series = require('../models/series.model');
-const { catchAsync } = require('../utils/error.handler');
+const { catchasync } = require('../utils/error.handler');
 
 // GET /api/series
-const getAllSeries = catchAsync(async (req, res) => {
+const getAllSeries = catchasync(async (req, res) => {
   const series = await Series.find()
     .select('prefixName name fileName genre rarity volumeCount publicationYears')
     .sort({ name: 1 });
@@ -16,7 +16,7 @@ const getAllSeries = catchAsync(async (req, res) => {
 });
 
 // GET /api/series/:fileName
-const getSeriesBySlug = catchAsync(async (req, res) => {
+const getSeriesBySlug = catchasync(async (req, res) => {
   const series = await Series.findOne({ fileName: req.params.fileName })
     .populate({
       path: 'volumes',
@@ -39,7 +39,7 @@ const getSeriesBySlug = catchAsync(async (req, res) => {
 });
 
 // POST /api/series
-const createSeries = catchAsync(async (req, res) => {
+const createSeries = catchasync(async (req, res) => {
   const { error } = Series.validateCreate(req.body);
   if (error) return res.status(400).json({ status: 'fail', message: error.details[0].message });
 
@@ -52,7 +52,7 @@ const createSeries = catchAsync(async (req, res) => {
 });
 
 // PATCH /api/series/:id
-const updateSeries = catchAsync(async (req, res) => {
+const updateSeries = catchasync(async (req, res) => {
   const { error } = Series.validateUpdate(req.body);
   if (error) return res.status(400).json({ status: 'fail', message: error.details[0].message });
 
@@ -72,7 +72,7 @@ const updateSeries = catchAsync(async (req, res) => {
 });
 
 // DELETE /api/series/:id
-const deleteSeries = catchAsync(async (req, res) => {
+const deleteSeries = catchasync(async (req, res) => {
   const series = await Series.findByIdAndDelete(req.params.id);
   if (!series) {
     return res.status(404).json({ status: 'fail', message: 'סדרה לא נמצאה' });

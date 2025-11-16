@@ -1,11 +1,11 @@
 // routes/series.routes.js
 const express = require('express');
 const {
-  getallseries,
-  getseriesbyslug,
-  createseries,
-  updateseries,
-  deleteseries
+  getAllSeries,
+  getSeriesBySlug,
+  createSeries,
+  updateSeries,
+  deleteSeries
 } = require('../controllers/series.controller');
 
 const { protect, restrictTo } = require('../middleware/auth');
@@ -19,19 +19,19 @@ router.use(protect);
 // POST /api/series
 router
   .route('/')
-  .get(getallseries)
-  .post(createseries);
+  .get(getAllSeries)
+  .post(createSeries);
 
 // GET /api/series/orot-tshuva
 router
   .route('/:fileName')
-  .get(getseriesbyslug);
+  .get(getSeriesBySlug);
 
 // PATCH /api/series/60d7...
 // DELETE /api/series/60d7...
 router
   .route('/:id')
-  .patch(updateseries)
-  .delete(deleteseries);
+  .patch(updateSeries)
+  .delete(deleteSeries);
 
 module.exports = router;

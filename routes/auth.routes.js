@@ -1,16 +1,15 @@
 const express = require('express');
-const { signup, login, getMe } = require('../controllers/auth.controller');
+const {
+  signup,
+  login,
+  getMe                     // ← חייב להיות getMe עם M גדולה!
+} = require('../controllers/auth.controller');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
-// POST /api/auth/signup
 router.post('/signup', signup);
-
-// POST /api/auth/login
 router.post('/login', login);
-
-// GET /api/auth/me  (מי אני? – אחרי התחברות)
-router.get('/me', protect, getMe);
+router.get('/me', protect, getMe);   // ← כאן בדיוק השורה 14 – חייב להיות getMe!
 
 module.exports = router;

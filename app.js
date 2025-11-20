@@ -1,9 +1,16 @@
 const express = require('express');
+const dotenv = require('dotenv');
+const colors = require('colors');
+const connectDB = require('./config/db');
+
+// Routes
 const seriesRoutes = require('./routes/series.routes');
 const volumeRoutes = require('./routes/volume.routes');
 const subtitleRoutes = require('./routes/subtitle.routes');
 const authRoutes = require('./routes/auth.routes');
-const userRoutes = require('./routes/user.routes');
+
+dotenv.config();
+connectDB();
 
 const app = express();
 
@@ -15,10 +22,9 @@ app.use('/api/series', seriesRoutes);
 app.use('/api/volumes', volumeRoutes);
 app.use('/api/subtitles', subtitleRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);  // רק לאדמין
 
-// 404
-app.all('*', (req, res) => {
+// רק אם באמת אין ראוט – 404
+app.use((req, res) => {
   res.status(404).json({
     status: 'fail',
     message: `לא נמצא: ${req.originalUrl}`

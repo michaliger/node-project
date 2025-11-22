@@ -1,3 +1,6 @@
+const catchAsync = require('../utils/catchAsync');
+const Series = require('../models/series.model');
+
 // POST /api/series
 const createSeries = catchAsync(async (req, res) => {
   // 1. ולידציה

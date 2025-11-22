@@ -4,12 +4,19 @@ const Joi = require('joi');
 // -----------------------------
 // 1. סכמה של Mongoose
 // -----------------------------
+
 const seriesSchema = new mongoose.Schema({
   // שם מקדים (למשל: "סדרת", "אוסף")
   prefixName: {
     type: String,
     trim: true,               // מסיר רווחים מיותרים מההתחלה והסוף
     default: null
+  },
+
+  // תמונת שער של הסדרה
+  coverImage: {
+    type: String,
+    default: 'default-series.jpg'  // תמונה ברירת מחדל אם אין
   },
 
   // שם הקובץ (מזהה ייחודי, כמו URL slug)
@@ -156,6 +163,7 @@ const objectId = Joi.string().pattern(/^[0-9a-fA-F]{24}$/, 'ObjectId');
 
 const seriesCreateSchema = Joi.object({
   prefixName: Joi.string().trim().allow('', null),
+  coverImage: Joi.string().allow('').default('default-series.jpg'),
   fileName: Joi.string().trim().lowercase().required(),
   fileAlias: Joi.object({
     value: Joi.string().trim().allow('', null),

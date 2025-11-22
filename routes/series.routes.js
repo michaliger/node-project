@@ -6,6 +6,7 @@ const {
   createSeries,
   updateSeries,
   deleteSeries
+  
 } = require('../controllers/series.controller');
 
 const { protect, restrictTo } = require('../middleware/auth');

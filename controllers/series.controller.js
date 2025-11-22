@@ -1,6 +1,42 @@
-const catchAsync = require('../utils/catchAsync');
+// controllers/series.controller.js
 const Series = require('../models/series.model');
+const catchAsync = require('../utils/catchAsync');
 
+// GET /api/series
+const getAllSeries = catchAsync(async (req, res) => {
+  const series = await Series.find()
+    .select('prefixName name fileName genre rarity volumeCount publicationYears')
+    .sort({ name: 1 });
+
+  res.status(200).json({
+    status: 'success',
+    results: series.length,
+    data: { series }
+  });
+});
+
+// GET /api/series/:fileName
+const getSeriesBySlug = catchAsync(async (req, res) => {
+  const series = await Series.findOne({ fileName: req.params.fileName })
+    .populate({
+      path: 'volumes',
+      select: 'volumeNumber letter title fileName publicationYear mainTopic coverImage',
+      populate: {
+        path: 'subtitles',
+        select: 'serialNumber contentTitle category role authorFullName startPage',
+        populate: { path: 'additionalAuthor', select: 'authorFullName' }
+      }
+    });
+
+  if (!series) {
+    return res.status(404).json({ status: 'fail', message: 'סדרה לא נמצאה' });
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: { series }
+  });
+});
 // POST /api/series
 const createSeries = catchAsync(async (req, res) => {
   // 1. ולידציה
@@ -111,3 +147,20 @@ const updateSeries = catchAsync(async (req, res) => {
     data: { series }
   });
 });
+// DELETE /api/series/:id
+const deleteSeries = catchAsync(async (req, res) => {
+  const series = await Series.findByIdAndDelete(req.params.id);
+  if (!series) {
+    return res.status(404).json({ status: 'fail', message: 'סדרה לא נמצאה' });
+  }
+
+  res.status(204).json({ status: 'success', data: null });
+});
+
+module.exports = {
+  getAllSeries,
+  getSeriesBySlug,
+  createSeries,
+  updateSeries,
+  deleteSeries
+};

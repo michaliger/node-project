@@ -1,8 +1,8 @@
 // controllers/subtitle.controller.js
 const Subtitle = require('../models/subtitle.model');
-const { catchasync } = require('../utils/error.handler');
+const catchAsync = require('../utils/catchAsync');
 
-const getallsubtitles = catchasync(async (req, res) => {
+const getallsubtitles = catchAsync(async (req, res) => {
   const subtitles = await Subtitle.find()
     .select('serialNumber contentTitle category role authorFullName startPage')
     .sort({ serialNumber: 1 });
@@ -14,7 +14,7 @@ const getallsubtitles = catchasync(async (req, res) => {
   });
 });
 
-const getsubtitle = catchasync(async (req, res) => {
+const getsubtitle = catchAsync(async (req, res) => {
   const subtitle = await Subtitle.findById(req.params.id)
     .populate('additionalAuthor', 'authorFullName')
     .populate('continuationInNextVolume', 'volumeNumber title fileName');
@@ -29,7 +29,7 @@ const getsubtitle = catchasync(async (req, res) => {
   });
 });
 
-const createsubtitle = catchasync(async (req, res) => {
+const createsubtitle = catchAsync(async (req, res) => {
   const { error } = Subtitle.validateCreate(req.body);
   if (error) return res.status(400).json({ status: 'fail', message: error.details[0].message });
 
@@ -41,7 +41,7 @@ const createsubtitle = catchasync(async (req, res) => {
   });
 });
 
-const updatesubtitle = catchasync(async (req, res) => {
+const updatesubtitle = catchAsync(async (req, res) => {
   const { error } = Subtitle.validateUpdate(req.body);
   if (error) return res.status(400).json({ status: 'fail', message: error.details[0].message });
 
@@ -60,7 +60,7 @@ const updatesubtitle = catchasync(async (req, res) => {
   });
 });
 
-const deletesubtitle = catchasync(async (req, res) => {
+const deletesubtitle = catchAsync(async (req, res) => {
   const subtitle = await Subtitle.findByIdAndDelete(req.params.id);
   if (!subtitle) {
     return res.status(404).json({ status: 'fail', message: 'כותרת משנה לא נמצאה' });

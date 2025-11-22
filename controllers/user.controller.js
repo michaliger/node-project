@@ -1,7 +1,7 @@
 const User = require('../models/user.model');
-const { catchasync } = require('../utils/error.handler');
+const catchAsync = require('../utils/catchAsync');
 
-exports.getAllUsers = catchasync(async (req, res) => {
+exports.getAllUsers = catchAsync(async (req, res) => {
   const users = await User.find().select('-password');
   res.status(200).json({
     status: 'success',
@@ -10,13 +10,13 @@ exports.getAllUsers = catchasync(async (req, res) => {
   });
 });
 
-exports.getUser = catchasync(async (req, res) => {
+exports.getUser = catchAsync(async (req, res) => {
   const user = await User.findById(req.params.id).select('-password');
   if (!user) return res.status(404).json({ message: 'משתמש לא נמצא' });
   res.status(200).json({ status: 'success', data: { user } });
 });
 
-exports.updateUser = catchasync(async (req, res) => {
+exports.updateUser = catchAsync(async (req, res) => {
   const user = await User.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true
@@ -25,7 +25,7 @@ exports.updateUser = catchasync(async (req, res) => {
   res.status(200).json({ status: 'success', data: { user } });
 });
 
-exports.deleteUser = catchasync(async (req, res) => {
+exports.deleteUser = catchAsync(async (req, res) => {
   const user = await User.findByIdAndDelete(req.params.id);
   if (!user) return res.status(404).json({ message: 'משתמש לא נמצא' });
   res.status(204).json({ status: 'success', data: null });

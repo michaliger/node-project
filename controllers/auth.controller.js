@@ -1,6 +1,6 @@
 const User = require('../models/user.model');
 const jwt = require('jsonwebtoken');
-const { catchasync } = require('../utils/error.handler');
+const catchAsync = require('../utils/catchAsync');
 
 const signToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, {
   expiresIn: process.env.JWT_EXPIRES_IN
@@ -31,7 +31,7 @@ const createsendtoken = (user, statusCode, res) => {
   });
 };
 
-exports.signup = catchasync(async (req, res) => {
+exports.signup = catchAsync(async (req, res) => {
   const { error } = User.validateSignup(req.body);
   if (error) {
     const messages = error.details.map(err => err.message);
@@ -45,7 +45,7 @@ exports.signup = catchasync(async (req, res) => {
   createsendtoken(newUser, 201, res);
 });
 
-exports.login = catchasync(async (req, res) => {
+exports.login = catchAsync(async (req, res) => {
   const { error } = User.validateLogin(req.body);
   if (error) {
     return res.status(400).json({

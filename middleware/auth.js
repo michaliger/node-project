@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user.model');
-const { catchasync } = require('../utils/error.handler'); 
+const catchAsync = require('../utils/catchAsync');
 
-exports.protect = catchasync(async (req, res, next) => {
+exports.protect = catchAsync(async (req, res, next) => {
   let token;
   if (req.headers.authorization?.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];

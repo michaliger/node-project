@@ -174,7 +174,6 @@ volumeSchema.index({ mainTopic: 1 });
 volumeSchema.virtual('fullTitle').get(function () {
   let title = `כרך ${this.volumeNumber}`;
   if (this.letter) title += `${this.letter}`;
-  title += `: ${this.title}`;
   return title;
 });
 

@@ -14,7 +14,7 @@ const { protect, restrictTo } = require('../middleware/auth');
 const router = express.Router();
 
 // הגנה על כל הראוטים (אם את רוצה – אפשר להסיר)
-router.use(protect);
+// router.use(protect);
 
 // GET /api/series
 // POST /api/series

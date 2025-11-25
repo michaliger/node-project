@@ -116,6 +116,7 @@ seriesSchema.index({ genre: 1, rarity: 1 });
 // 3. Virtual – כמות כרכים
 // -----------------------------
 seriesSchema.virtual('volumeCount').get(function () {
+  if (!this.volumes || this.volumes.length === 0) return [];
   return this.volumes.length;
 });
 

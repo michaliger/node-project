@@ -2,68 +2,73 @@ const Series = require('../models/series.model');
 const Volume = require('../models/volume.model');
 const Subtitle = require('../models/subtitle.model');
 
-// הפונקציה הקסומה שמכניסה הכל בבת אחת!
 const seedFullSeries = async (req, res) => {
-    try {
-        await Series.deleteMany({});
-        await Volume.deleteMany({});
-        await Subtitle.deleteMany({});
-        const items = req.body; // מערך של סדרות שלמות
+  try {
+    // מחיקת כל הנתונים הקיימים (רק בזמן פיתוח!)
+    await Series.deleteMany({});
+    await Volume.deleteMany({});
+    await Subtitle.deleteMany({});
 
-        const results = [];
+    const items = req.body;
+    const results = [];
 
-        for (const item of items) {
-            const { series: seriesData, volumes: volumesData } = item;
+    const adminUserId = "123456789";
 
-            // 1. יוצרים את הסדרה
-            const createdSeries = await Series.create(seriesData);
+    for (const item of items) {
+      const { series: seriesData, volumes: volumesData } = item;
 
-            // 2. עוברים על כל כרך
-            const createdVolumeIds = [];
+      // 1. יוצרים את הסדרה + מוסיפים מי יצר
+      const createdSeries = await Series.create({
+        ...seriesData,
+        createdBy: adminUserId,
+        updatedBy: adminUserId
+      });
 
-            for (const volData of volumesData) {
-                const { subtitles: subtitlesData, ...volumeData } = volData;
+      const createdVolumeIds = [];
 
-                // קישור לכרך לסדרה
-                volumeData.series = createdSeries._id;
+      for (const volData of volumesData) {
+        const { subtitles: subtitlesData, ...volumeData } = volData;
 
-                // יוצרים את כל כותרות המשנה של הכרך
-                const createdSubtitles = subtitlesData
-                    ? await Subtitle.insertMany(subtitlesData)
-                    : [];
+        // יוצרים את כל הכותרות המשנה + מוסיפים מי יצר
+        const createdSubtitles = subtitlesData?.length > 0
+          ? await Subtitle.insertMany(
+              subtitlesData.map(s => ({
+                ...s,
+                createdBy: adminUserId,
+                updatedBy: adminUserId
+              }))
+            )
+          : [];
 
-                volumeData.subtitles = createdSubtitles.map(s => s._id);
-
-                // יוצרים את הכרך
-                const createdVolume = await Volume.create(volumeData);
-                createdVolumeIds.push(createdVolume._id);
-            }
-
-            // 3. מעדכנים את הסדרה עם כל הכרכים
-            await Series.findByIdAndUpdate(createdSeries._id, {
-                $set: { volumes: createdVolumeIds }
-            });
-
-            // 4. מחזירים את הסדרה המלאה
-            const fullSeries = await Series.findById(createdSeries._id)
-                .populate({
-                    path: 'volumes',
-                    populate: { path: 'subtitles' }
-                });
-
-            results.push(fullSeries);
-        }
-
-        res.status(201).json({
-            message: `הוכנסו ${results.length} סדרות מלאות + כרכים + כותרות משנה!`,
-            count: results.length,
-            data: results
+        // יוצרים את הכרך + מוסיפים מי יצר + מקשרים כותרות
+        const createdVolume = await Volume.create({
+          ...volumeData,
+          series: createdSeries._id,
+          subtitles: createdSubtitles.map(s => s._id),
+          createdBy: adminUserId,
+          updatedBy: adminUserId
         });
 
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: err.message });
+        createdVolumeIds.push(createdVolume._id);
+      }
+
+      // מעדכנים את הסדרה עם כל הכרכים
+      await Series.findByIdAndUpdate(createdSeries._id, {
+        volumes: createdVolumeIds
+      });
+
+      results.push(createdSeries._id);
     }
+
+    res.status(201).json({
+      message: `הוכנסו בהצלחה ${results.length} סדרות מלאות! 🎉`,
+      count: results.length
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
 };
 
 module.exports = { seedFullSeries };

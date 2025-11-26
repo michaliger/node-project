@@ -1,4 +1,4 @@
-// routes/series.routes.js
+const { seedFullSeries } = require('../controllers/seed.controller');
 const express = require('express');
 const {
   getAllSeries,
@@ -45,4 +45,5 @@ router.post('/bulk', async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 });
+router.post('/seed-full', seedFullSeries);
 module.exports = router;

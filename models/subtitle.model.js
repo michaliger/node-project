@@ -90,7 +90,16 @@ const subtitleSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subtitle', // כן! קישור לעצמו
     default: null
-  }
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -156,5 +165,13 @@ subtitleSchema.statics.validateUpdate = (obj) =>
 // -----------------------------
 // 6. ייצוא
 // -----------------------------
+// עדכון אוטומטי של מי ערך
+subtitleSchema.pre('save', function(next) {
+  if (this.isNew || this.isModified()) {
+    this.updatedBy = this.createdBy || null;
+  }
+  next();
+});
+
 const Subtitle = mongoose.model('Subtitle', subtitleSchema);
 module.exports = Subtitle;

@@ -94,12 +94,22 @@ const seriesSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: null
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true,           // יוצר createdAt ו-updatedAt אוטומטית
   toJSON: { virtuals: true }, // מאפשר virtuals ב-toJSON
   toObject: { virtuals: true }
-});
+}
+);
 
 // -----------------------------
 // 2. אינדקסים (Indexes)
@@ -196,5 +206,12 @@ seriesSchema.statics.validateUpdate = (obj) =>
 // -----------------------------
 // 6. ייצוא המודל
 // -----------------------------
+seriesSchema.pre('save', function(next) {
+  if (this.isNew || this.isModified()) {
+    this.updatedBy = this.createdBy || null;
+  }
+  next();
+});
+
 const Series = mongoose.model('Series', seriesSchema);
 module.exports = Series;

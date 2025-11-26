@@ -152,7 +152,16 @@ const volumeSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: null
-  }
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -280,5 +289,13 @@ volumeSchema.statics.validateUpdate = (obj) =>
 // -----------------------------
 // 8. ייצוא
 // -----------------------------
+// עדכון אוטומטי של מי ערך
+volumeSchema.pre('save', function(next) {
+  if (this.isNew || this.isModified()) {
+    this.updatedBy = this.createdBy || null;
+  }
+  next();
+});
+
 const Volume = mongoose.model('Volume', volumeSchema);
 module.exports = Volume;

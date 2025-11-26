@@ -6,11 +6,11 @@ const {
   createSeries,
   updateSeries,
   deleteSeries
-  
+
 } = require('../controllers/series.controller');
 
 const { protect, restrictTo } = require('../middleware/auth');
-
+const Series = require('../models/series.model');
 const router = express.Router();
 
 // הגנה על כל הראוטים (אם את רוצה – אפשר להסיר)
@@ -35,4 +35,14 @@ router
   .patch(updateSeries)
   .delete(deleteSeries);
 
+router.post('/bulk', async (req, res) => {
+  try {
+    const series = req.body;
+    await Series.deleteMany({});        // אם את רוצה לנקות קודם
+    const inserted = await Series.insertMany(series);
+    res.status(201).json({ message: `הוכנסו ${inserted.length} סדרות בהצלחה!` });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
 module.exports = router;

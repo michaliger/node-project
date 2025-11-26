@@ -122,13 +122,13 @@ const volumeSchema = new mongoose.Schema({
     trim: true,
     unique: true,
     sparse: true,
-    default: null
+    default: undefined
   },
 
   // שם קובץ ל-URL (ייחודי, אוטומטי)
   fileName: {
     type: String,
-    required: true,
+    required: false,
     unique: true,
     trim: true,
     lowercase: true

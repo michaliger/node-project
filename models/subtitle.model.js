@@ -109,7 +109,7 @@ const subtitleSchema = new mongoose.Schema({
 // -----------------------------
 // 2. אינדקסים
 // -----------------------------
-subtitleSchema.index({ serialNumber: 1 }, { unique: true });
+// subtitleSchema.index({ serialNumber: 1 }, { unique: true });
 subtitleSchema.index({ contentTitle: 1, lastName: 1 });
 subtitleSchema.index({ startPage: 1 });
 

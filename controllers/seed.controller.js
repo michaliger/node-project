@@ -4,15 +4,11 @@ const Subtitle = require('../models/subtitle.model');
 
 const seedFullSeries = async (req, res) => {
   try {
-    // מחיקת כל הנתונים הקיימים (רק בזמן פיתוח!)
-    await Series.deleteMany({});
-    await Volume.deleteMany({});
-    await Subtitle.deleteMany({});
 
     const items = req.body;
     const results = [];
 
-    const adminUserId = "123456789";
+    const adminUserId = "691f8b89e60ae71b1932aab0";
 
     for (const item of items) {
       const { series: seriesData, volumes: volumesData } = item;

@@ -2,131 +2,228 @@ const mongoose = require('mongoose');
 const Joi = require('joi');
 
 // -----------------------------
-// 1. סכמה של Mongoose
+// 1. פונקציה ליצירת fileName אוטומטי (Slug)
 // -----------------------------
-const topicSchema = new mongoose.Schema({
-  topicNumber: { type: Number, required: true },
-  topicTitle: { type: String, trim: true, required: true },
-  pageStart: { type: Number },
-  pageEnd: { type: Number }
-}, { _id: false });
+const createSlug = (text) => {
+    if (!text) return '';
+    return text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^א-תa-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .trim();
+};
 
-const volumeSchema = new mongoose.Schema({
-  volumeNumber: { type: Number, required: true },
-  letter: { type: String, trim: true, maxlength: 1 },
-  title: { type: String, trim: true, required: true },
-  publicationYear: { type: Number },
-  mainTopic: { type: String, trim: true },
-  topics: [topicSchema]
-}, { _id: true }); // כאן _id: true כדי שיהיה ID לכל כרך
-
+// -----------------------------
+// 2. סכמה של Series (סדרה)
+// -----------------------------
 const seriesSchema = new mongoose.Schema({
-  prefixName: { type: String, trim: true, default: null }, // מתוך רשימה
-  fileName: { type: String, required: true, unique: true, trim: true, lowercase: true },
-  identifierName: { type: String, trim: true, default: null }, // חובה במקרה של כפילות
-  author: { type: String, trim: true }, // י"ל ע"י או עורכים
-  totalVolumes: { type: Number, default: 0 }, // ממולא אוטומטית לפי כרכים
-  volumes: [volumeSchema], // אופציה ללא סוף להוספת כרכים
-  volumeIDs: [{ type: mongoose.Schema.Types.ObjectId }], // השדה החדש – IDs של הכרכים
-  publicationPlace: { type: String, default: 'ישראל', trim: true }, // אוטומטי
-  publicationYears: { type: [Number], default: [] }, // ממולא לפי הכרכים
-  sector: { type: String, trim: true, default: null }, // מתוך רשימה
-  dataCompleteness: { type: String, trim: true, default: '' }, // שלמות המאגר
-  missingVolumesList: { type: String, trim: true, default: '' }, // רשימת כרכים חסרים
-  userNotes: { type: String, trim: true, default: '' }, // הערות למשתמש
-  adminNotes: { type: String, trim: true, default: '' }, // הערות למערכת
-  fileDescription: { type: String, trim: true, default: '' }, // תאור הקובץ
-  coverImage: { type: String, default: 'default-series.jpg' }, // תמונת שער
-  enteredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // מי שהכניס
-  catalogStatus: { type: String, enum: ['חלקי', 'שלם'], default: 'חלקי' }, // מצב הקיטלוג
-  msID: { type: String, trim: true, default: null }, // מ"ס אוטומטי
-}, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
+    // שם מקדים (למשל: סדרת ספרי)
+    prefixName: { 
+        type: String, 
+        trim: true, 
+        default: null 
+    }, 
+    
+    // שם ראשי (חובה, ייחודי)
+    title: { 
+        type: String, 
+        required: true, 
+        trim: true,
+        unique: true
+    }, 
+    
+    // שם קובץ ל-URL (ייחודי, אוטומטי, חובה)
+    fileName: { 
+        type: String, 
+        required: true, 
+        unique: true, 
+        trim: true, 
+        lowercase: true 
+    },
+    
+    // מזהה נוסף/שם מזהה (למקרה של כפילות בשם)
+    identifierName: { 
+        type: String, 
+        trim: true, 
+        default: null 
+    }, 
+    
+    // מחבר / עורכים
+    author: { 
+        type: String, 
+        trim: true, 
+        default: null 
+    }, 
+    
+    // מקום הוצאה
+    publicationPlace: { 
+        type: String, 
+        default: 'ישראל', 
+        trim: true 
+    }, 
+    
+    // מגזר
+    sector: { 
+        type: String, 
+        trim: true, 
+        default: null 
+    }, 
+    
+    // סטטוס קטלוג
+    catalogStatus: { 
+        type: String, 
+        enum: ['חלקי', 'שלם'], 
+        default: 'חלקי' 
+    }, 
+
+    // סה"כ כרכים – *אוטומטי, מנוהל ע"י Volume.js*
+    totalVolumes: { 
+        type: Number, 
+        default: 0 
+    }, 
+    
+    // רשימת IDs של הכרכים – *אוטומטי, מנוהל ע"י Volume.js*
+    volumes: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Volume', 
+        default: [] 
+    }], 
+
+    // שדות מידע כללי (כפי שהיו בסכימה המקורית שלך)
+    dataCompleteness: { type: String, trim: true, default: '' },
+    missingVolumesList: { type: String, trim: true, default: '' },
+    userNotes: { type: String, trim: true, default: '' },
+    adminNotes: { type: String, trim: true, default: '' },
+    fileDescription: { type: String, trim: true, default: '' },
+    coverImage: { type: String, default: 'default-series.jpg' }, 
+    msID: { type: String, trim: true, default: null }, // מ"ס אוטומטי
+    
+    // מי יצר/עדכן
+    createdBy: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User', 
+        required: true 
+    }, 
+    updatedBy: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+    },
+
+}, { 
+    timestamps: true, 
+    toJSON: { virtuals: true }, 
+    toObject: { virtuals: true } 
+});
 
 // -----------------------------
-// 2. אינדקסים
+// 3. אינדקסים
 // -----------------------------
 seriesSchema.index({ fileName: 1 }, { unique: true });
+seriesSchema.index({ title: 1 }, { unique: true }); // ודאות שאין שמות סדרה זהים
 seriesSchema.index({ sector: 1, catalogStatus: 1 });
+seriesSchema.index({ author: 1 });
 
 // -----------------------------
-// 3. Virtuals
+// 4. Virtuals
 // -----------------------------
 seriesSchema.virtual('volumeCount').get(function() {
-  return this.volumes ? this.volumes.length : 0;
+    return this.volumes ? this.volumes.length : 0;
 });
 
 // -----------------------------
-// 4. Hooks
+// 5. Pre-save: יצירת fileName אוטומטי + עדכון updatedBy
 // -----------------------------
-seriesSchema.pre('save', function(next) {
-  // עדכון totalVolumes אוטומטי לפי מספר הכרכים
-  this.totalVolumes = this.volumes.length;
+seriesSchema.pre('save', async function (next) {
+    try {
+        // 1. יצירת fileName אוטומטי אם חסר
+        if (this.isNew || this.isModified('title')) {
+            let base = createSlug(this.title);
 
-  // עדכון publicationYears לפי הכרכים
-  const years = this.volumes
-    .map(v => v.publicationYear)
-    .filter(y => y != null)
-    .sort((a, b) => a - b);
-  this.publicationYears = [...new Set(years)];
+            // וידוא ייחודיות (דומה למה שב-Volume.js)
+            let slug = base;
+            let counter = 1;
+            while (await mongoose.model('Series').countDocuments({ fileName: slug, _id: { $ne: this._id } })) {
+                slug = `${base}-${counter}`;
+                counter++;
+            }
+            this.fileName = slug;
+        }
 
-  // עדכון volumeIDs לפי הכרכים
-  this.volumeIDs = this.volumes.map(v => v._id);
+        // 2. עדכון updatedBy
+        if (this.isModified()) {
+            this.updatedBy = this.createdBy || null;
+        }
 
-  next();
+        next();
+    } catch (err) {
+        next(err);
+    }
+});
+
+
+// -----------------------------
+// 6. Post-remove: מחיקת כרכים קשורים (Cleanup)
+// -----------------------------
+seriesSchema.post('remove', async function (doc, next) {
+    try {
+        const Volume = mongoose.model('Volume');
+        // מחיקת כל הכרכים שמקושרים לסדרה שנמחקה
+        await Volume.deleteMany({ series: doc._id });
+        console.log(`Deleted ${doc.volumes.length} volumes associated with series ${doc._id}`);
+        next();
+    } catch (err) {
+        next(err);
+    }
 });
 
 // -----------------------------
-// 5. Joi Validation
+// 7. וולידציה עם Joi
 // -----------------------------
 const objectId = Joi.string().pattern(/^[0-9a-fA-F]{24}$/, 'ObjectId');
 
-const topicJoiSchema = Joi.object({
-  topicNumber: Joi.number().integer().required(),
-  topicTitle: Joi.string().required(),
-  pageStart: Joi.number().integer().optional(),
-  pageEnd: Joi.number().integer().optional()
-});
-
-const volumeJoiSchema = Joi.object({
-  volumeNumber: Joi.number().integer().required(),
-  letter: Joi.string().max(1).optional(),
-  title: Joi.string().required(),
-  publicationYear: Joi.number().integer().optional(),
-  mainTopic: Joi.string().optional(),
-  topics: Joi.array().items(topicJoiSchema).default([])
-});
-
 const seriesCreateSchema = Joi.object({
-  prefixName: Joi.string().optional().allow(null, ''),
-  fileName: Joi.string().required(),
-  identifierName: Joi.string().optional().allow(null, ''),
-  author: Joi.string().optional(),
-  totalVolumes: Joi.number().integer().optional(),
-  volumes: Joi.array().items(volumeJoiSchema).default([]),
-  volumeIDs: Joi.array().items(objectId).optional(),
-  publicationPlace: Joi.string().optional(),
-  publicationYears: Joi.array().items(Joi.number().integer()).default([]),
-  sector: Joi.string().optional(),
-  dataCompleteness: Joi.string().optional(),
-  missingVolumesList: Joi.string().optional(),
-  userNotes: Joi.string().optional(),
-  adminNotes: Joi.string().optional(),
-  fileDescription: Joi.string().optional(),
-  coverImage: Joi.string().optional(),
-  enteredBy: objectId.required(),
-  catalogStatus: Joi.string().valid('חלקי', 'שלם').optional(),
-  msID: Joi.string().optional()
+    prefixName: Joi.string().trim().allow('', null),
+    title: Joi.string().trim().required(),
+    fileName: Joi.string().trim().lowercase().optional(), // אוטומטי – לא חייב לשלוח
+    identifierName: Joi.string().trim().allow('', null),
+    author: Joi.string().trim().allow('', null),
+    publicationPlace: Joi.string().trim().allow('', null),
+    sector: Joi.string().trim().allow('', null),
+    catalogStatus: Joi.string().valid('חלקי', 'שלם').optional(),
+
+    // שדות כלליים
+    dataCompleteness: Joi.string().trim().allow('', null),
+    missingVolumesList: Joi.string().trim().allow('', null),
+    userNotes: Joi.string().trim().allow('', null),
+    adminNotes: Joi.string().trim().allow('', null),
+    fileDescription: Joi.string().trim().allow('', null),
+    coverImage: Joi.string().trim().allow('', null),
+    msID: Joi.string().trim().allow('', null),
+    
+    // שדות אוטומטיים/מנוהלים – לא חובה בעת יצירה/עדכון
+    totalVolumes: Joi.number().integer().forbidden(),
+    volumes: Joi.array().items(objectId).forbidden(),
+    
+    // מי יצר
+    createdBy: objectId.required(),
 });
 
-seriesSchema.statics.validateCreate = obj =>
-  seriesCreateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
+const seriesUpdateSchema = seriesCreateSchema.fork(
+    Object.keys(seriesCreateSchema.describe().keys),
+    schema => schema.optional()
+).fork(['fileName'], schema => schema.forbidden()); // לא מאפשר לעדכן fileName ישירות
 
-seriesSchema.statics.validateUpdate = obj =>
-  seriesCreateSchema.fork(Object.keys(seriesCreateSchema.describe().keys), schema => schema.optional())
-    .validate(obj, { abortEarly: false, stripUnknown: true });
+seriesSchema.statics.validateCreate = (obj) =>
+    seriesCreateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
+
+seriesSchema.statics.validateUpdate = (obj) =>
+    seriesUpdateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
+
 
 // -----------------------------
-// 6. Export
+// 8. ייצוא
 // -----------------------------
 const Series = mongoose.model('Series', seriesSchema);
 module.exports = Series;

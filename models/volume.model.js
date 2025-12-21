@@ -185,6 +185,21 @@ volumeSchema.post('remove', async function (doc, next) {
   }
 });
 
+// עדכון אוטומטי של totalVolumes בסדרה כשמוסיפים/מוחקים כרך
+volumeSchema.post('save', async function (doc) {
+  if (doc.series) {
+    const count = await this.constructor.countDocuments({ series: doc.series });
+    await mongoose.model('Series').findByIdAndUpdate(doc.series, { totalVolumes: count });
+  }
+});
+
+volumeSchema.post('remove', async function (doc) {
+  if (doc.series) {
+    const count = await this.constructor.countDocuments({ series: doc.series });
+    await mongoose.model('Series').findByIdAndUpdate(doc.series, { totalVolumes: count });
+  }
+});
+
 // -----------------------------
 // עדכון אוטומטי של publicationYears בסדרה (שמירה + מחיקה)
 // -----------------------------
@@ -229,6 +244,39 @@ volumeSchema.post('remove', async function (doc, next) {
     next(err);
   }
 });
+
+// אחרי שמירת כרך (חדש או עדכון של series)
+volumeSchema.post('save', async function (doc, next) {
+  try {
+    if (doc.series) {
+      const volumesCount = await this.constructor.countDocuments({ series: doc.series });
+      await mongoose.model('Series').findByIdAndUpdate(doc.series, {
+        totalVolumes: volumesCount
+      });
+    }
+    next();
+  } catch (err) {
+    console.error('שגיאה בעדכון totalVolumes:', err);
+    next(err);
+  }
+});
+
+// אחרי מחיקת כרך
+volumeSchema.post('remove', async function (doc, next) {
+  try {
+    if (doc.series) {
+      const volumesCount = await this.constructor.countDocuments({ series: doc.series });
+      await mongoose.model('Series').findByIdAndUpdate(doc.series, {
+        totalVolumes: volumesCount
+      });
+    }
+    next();
+  } catch (err) {
+    console.error('שגיאה בעדכון totalVolumes אחרי מחיקה:', err);
+    next(err);
+  }
+});
+
 
 // -----------------------------
 // Joi ולידציה

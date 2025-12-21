@@ -109,13 +109,6 @@ const seriesSchema = new mongoose.Schema({
         default: "default-series.jpg"
     },
 
-    // מספר סידורי אוטומטי (אם צריך)
-    msID: {
-        type: String,
-        trim: true,
-        default: ""
-    },
-
     // רשימת IDs של הכרכים הקשורים
     volumes: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -126,7 +119,7 @@ const seriesSchema = new mongoose.Schema({
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        // required: true
     },
     updatedBy: {
         type: mongoose.Schema.Types.ObjectId,
@@ -225,13 +218,12 @@ const seriesCreateSchema = Joi.object({
     userNotes: Joi.string().trim().allow('', null),
     fileDescription: Joi.string().trim().allow('', null),
     coverImage: Joi.string().trim().allow('', null),
-    msID: Joi.string().trim().allow('', null),
 
     // שדות אוטומטיים – אסור לשלוח
     volumes: Joi.array().forbidden(),
     totalVolumes: Joi.any().forbidden(),
-
-    createdBy: objectId.required(),
+    
+    createdBy: objectId.optional(),
 });
 
 const seriesUpdateSchema = seriesCreateSchema.fork(

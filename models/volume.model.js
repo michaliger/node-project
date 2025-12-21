@@ -1,44 +1,30 @@
 const mongoose = require('mongoose');
 const Joi = require('joi');
 
-// -----------------------------
-// 1. פונקציה ליצירת fileName אוטומטי (ל-URL)
-// -----------------------------
-const createSlug = (text) => {
-  if (!text) return '';
-  return text
-    .toLowerCase()
-    .normalize('NFD')                  // תומך בעברית (א, ב, ג...)
-    .replace(/[\u0300-\u036f]/g, '')   // מסיר סימני ניקוד
-    .replace(/[^א-תa-z0-9]+/g, '-')     // מחליף רווחים וסימנים ב-
-    .replace(/^-+|-+$/g, '')           // מסיר - מההתחלה והסוף
-    .trim();
-};
-
-// -----------------------------
-// 2. סכמה של Volume
-// -----------------------------
 const volumeSchema = new mongoose.Schema({
-  // מספר כרך
+  // מספר גליון
   volumeNumber: {
     type: Number,
-    required: true,
     min: 1
   },
 
-  // אות (א, ב, ג...) – אופציונלי
-  letter: {
+  // שנה (שדה ישן – נשאר אם את משתמשת בו)
+  year: {
     type: String,
     trim: true,
-    uppercase: true,
-    maxlength: 1,
     default: null
   },
 
-  // שם הכרך
+  // חוברת (א, ב, ג...)
+  letter: {
+    type: String,
+    trim: true,
+    default: null
+  },
+
+  // שם גליון – השם הראשי והיחיד (במקום fileName)
   title: {
     type: String,
-    required: true,
     trim: true
   },
 
@@ -51,69 +37,57 @@ const volumeSchema = new mongoose.Schema({
 
   // חודש יציאה
   publicationMonth: {
-    type: Number,
-    min: 1,
-    max: 12,
+    type: String,
     default: null
   },
 
-  // שנת יציאה
+  // שנת יציאה – משמש לעדכון אוטומטי של publicationYears בסדרה
   publicationYear: {
-    type: Number,
-    min: 1000,
-    max: new Date().getFullYear() + 10,
+    type: String,
     default: null
   },
 
-  // לרגל / לכבוד
+  // י"ל לרגל
   occasion: {
     type: String,
     trim: true,
     default: null
   },
 
-  // כותרות משנה – מקושרות למודל Subtitle
+  // כותרות משנה
   subtitles: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subtitle',
     default: []
   }],
 
-  // מספר עמודים
-  pages: {
-    type: Number,
-    min: 1,
-    default: null
-  },
-
-  // גובה בס"מ
-  heightCm: {
-    type: Number,
-    min: 1,
-    max: 100,
-    default: null
+  // גודל גליון
+  volumeSize: {
+    type: String,
+    enum: ["", "גדול", "בינוני", "קטן"],
+    default: ""
   },
 
   // סוג כריכה
   coverType: {
     type: String,
     trim: true,
-    enum: ['קשה', 'רכה', 'עור', 'כריכה רכה', 'כריכה קשה', 'אחר'],
-    default: null
+    enum: ["", "קשה", "רכה"],
+    default: ""
   },
 
-  // מקור
+  // סטטוס מקור
   source: {
     type: String,
     trim: true,
     default: null
   },
 
-  // הערות
-  notes: {
+  // סטטוס קטלוג
+  catalogStatus: {
     type: String,
     trim: true,
-    default: null
+    default: ""
   },
 
   // מספר סידורי (קוד פנימי ייחודי)
@@ -125,15 +99,6 @@ const volumeSchema = new mongoose.Schema({
     default: undefined
   },
 
-  // שם קובץ ל-URL (ייחודי, אוטומטי)
-  fileName: {
-    type: String,
-    required: false,
-    unique: true,
-    trim: true,
-    lowercase: true
-  },
-
   // סדרה
   series: {
     type: mongoose.Schema.Types.ObjectId,
@@ -141,18 +106,6 @@ const volumeSchema = new mongoose.Schema({
     required: true
   },
 
-  // זמין?
-  isAvailable: {
-    type: Boolean,
-    default: true
-  },
-
-  // תמונת כריכה
-  coverImage: {
-    type: String,
-    trim: true,
-    default: null
-  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -169,61 +122,45 @@ const volumeSchema = new mongoose.Schema({
 });
 
 // -----------------------------
-// 3. אינדקסים
+// אינדקסים
 // -----------------------------
-volumeSchema.index({ fileName: 1 }, { unique: true });
 volumeSchema.index({ series: 1, volumeNumber: 1 }, { unique: true });
+volumeSchema.index({ series: 1, title: 1 }, { unique: true }); // ייחודיות שם גליון בתוך סדרה
 volumeSchema.index({ serialId: 1 }, { unique: true, sparse: true });
 volumeSchema.index({ publicationYear: 1, publicationMonth: 1 });
 volumeSchema.index({ mainTopic: 1 });
 
 // -----------------------------
-// 4. Virtual – שם מלא להצגה
+// Virtual – שם מלא להצגה
 // -----------------------------
 volumeSchema.virtual('fullTitle').get(function () {
   let title = `כרך ${this.volumeNumber}`;
-  if (this.letter) title += `${this.letter}`;
-  return title;
+  if (this.letter) title += ` ${this.letter}`;
+  if (this.title) title += ` - ${this.title}`;
+  return title.trim();
 });
 
 // -----------------------------
-// 5. Pre-save: יצירת fileName אוטומטי + עדכון סדרה
+// Pre-save: עדכון updatedBy + וידוא subtitles + הוספה לסדרה
 // -----------------------------
 volumeSchema.pre('save', async function (next) {
   try {
-    const Series = mongoose.model('Series');
-    const Subtitle = mongoose.model('Subtitle');
+    // עדכון מי שעדכן
+    this.updatedBy = this.createdBy || null;
 
-    // 1. יצירת fileName אוטומטי אם לא קיים
-    if (!this.fileName || this.isModified('title') || this.isModified('volumeNumber')) {
-      let base = createSlug(this.title);
-      if (this.volumeNumber) base += `-${this.volumeNumber}`;
-      if (this.letter) base += `-${this.letter.toLowerCase()}`;
-
-      // וידוא ייחודיות
-      let slug = base;
-      let counter = 1;
-      while (await mongoose.model('Volume').countDocuments({ fileName: slug, _id: { $ne: this._id } })) {
-        slug = `${base}-${counter}`;
-        counter++;
-      }
-      this.fileName = slug;
-    }
-
-    // 2. וידוא שכל subtitle קיים
+    // וידוא שכל subtitle קיים
     if (this.subtitles && this.subtitles.length > 0) {
-      const existing = await Subtitle.countDocuments({ _id: { $in: this.subtitles } });
+      const existing = await mongoose.model('Subtitle').countDocuments({ _id: { $in: this.subtitles } });
       if (existing !== this.subtitles.length) {
         return next(new Error('אחת או יותר מהכותרות המשנה לא קיימות'));
       }
     }
 
-    // 3. עדכון הסדרה
-    if (this.isNew || this.isModified('series')) {
-      await Series.findByIdAndUpdate(
+    // הוספה לסדרה אם זה כרך חדש
+    if (this.isNew) {
+      await mongoose.model('Series').findByIdAndUpdate(
         this.series,
-        { $addToSet: { volumes: this._id } },
-        { new: true }
+        { $addToSet: { volumes: this._id } }
       );
     }
 
@@ -234,12 +171,11 @@ volumeSchema.pre('save', async function (next) {
 });
 
 // -----------------------------
-// 6. Post-remove: הסרה מהסדרה
+// Post-remove: הסרה מהסדרה
 // -----------------------------
 volumeSchema.post('remove', async function (doc, next) {
   try {
-    const Series = mongoose.model('Series');
-    await Series.findByIdAndUpdate(
+    await mongoose.model('Series').findByIdAndUpdate(
       doc.series,
       { $pull: { volumes: doc._id } }
     );
@@ -250,35 +186,77 @@ volumeSchema.post('remove', async function (doc, next) {
 });
 
 // -----------------------------
-// 7. וולידציה עם Joi
+// עדכון אוטומטי של publicationYears בסדרה (שמירה + מחיקה)
+// -----------------------------
+volumeSchema.post('save', async function (doc, next) {
+  try {
+    if (doc.series) {
+      const volumes = await this.constructor.find({ series: doc.series });
+      const years = [...new Set(
+        volumes
+          .map(v => v.publicationYear)
+          .filter(y => y != null)
+      )].sort((a, b) => a - b);
+
+      await mongoose.model('Series').findByIdAndUpdate(doc.series, {
+        publicationYears: years.map(y => y.toString())
+      });
+    }
+    next();
+  } catch (err) {
+    console.error('שגיאה בעדכון publicationYears אחרי שמירה:', err);
+    next(err);
+  }
+});
+
+volumeSchema.post('remove', async function (doc, next) {
+  try {
+    if (doc.series) {
+      const volumes = await this.constructor.find({ series: doc.series });
+      const years = [...new Set(
+        volumes
+          .map(v => v.publicationYear)
+          .filter(y => y != null)
+      )].sort((a, b) => a - b);
+
+      await mongoose.model('Series').findByIdAndUpdate(doc.series, {
+        publicationYears: years.map(y => y.toString())
+      });
+    }
+    next();
+  } catch (err) {
+    console.error('שגיאה בעדכון publicationYears אחרי מחיקה:', err);
+    next(err);
+  }
+});
+
+// -----------------------------
+// Joi ולידציה
 // -----------------------------
 const objectId = Joi.string().pattern(/^[0-9a-fA-F]{24}$/, 'ObjectId');
 
 const volumeCreateSchema = Joi.object({
-  volumeNumber: Joi.number().integer().min(1).required(),
-  letter: Joi.string().trim().uppercase().max(1).allow('', null),
-  title: Joi.string().trim().required(),
+  volumeNumber: Joi.number().integer().min(1),
+  year: Joi.string().trim().allow('', null),
+  letter: Joi.string().trim().length(1).allow('', null),
+  title: Joi.string().trim(),
   mainTopic: Joi.string().trim().allow('', null),
-  publicationMonth: Joi.number().integer().min(1).max(12).allow(null),
-  publicationYear: Joi.number().integer().min(1000).max(new Date().getFullYear() + 10).allow(null),
+  publicationMonth: Joi.string().trim().allow('', null),
+  publicationYear: Joi.string().trim().allow('', null),
   occasion: Joi.string().trim().allow('', null),
   subtitles: Joi.array().items(objectId).default([]),
-  pages: Joi.number().integer().min(1).allow(null),
-  heightCm: Joi.number().min(1).max(100).allow(null),
-  coverType: Joi.string().trim().valid('קשה', 'רכה', 'עור', 'כריכה רכה', 'כריכה קשה', 'אחר').allow(null),
+  volumeSize: Joi.string().valid('', 'גדול', 'בינוני', 'קטן').allow(''),
+  coverType: Joi.string().valid('', 'קשה', 'רכה').allow(''),
   source: Joi.string().trim().allow('', null),
-  notes: Joi.string().trim().allow('', null),
+  catalogStatus: Joi.string().trim().allow('', null),
   serialId: Joi.string().trim().allow('', null),
-  fileName: Joi.string().trim().lowercase().optional(), // אוטומטי – לא חייב לשלוח
   series: objectId.required(),
-  isAvailable: Joi.boolean().default(true),
-  coverImage: Joi.string().trim().uri().allow('', null)
 });
 
 const volumeUpdateSchema = volumeCreateSchema.fork(
   Object.keys(volumeCreateSchema.describe().keys),
   schema => schema.optional()
-).fork(['fileName', 'series'], schema => schema.forbidden());
+).fork(['series'], schema => schema.forbidden());
 
 volumeSchema.statics.validateCreate = (obj) =>
   volumeCreateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
@@ -287,15 +265,7 @@ volumeSchema.statics.validateUpdate = (obj) =>
   volumeUpdateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
 
 // -----------------------------
-// 8. ייצוא
+// ייצוא
 // -----------------------------
-// עדכון אוטומטי של מי ערך
-volumeSchema.pre('save', function(next) {
-  if (this.isNew || this.isModified()) {
-    this.updatedBy = this.createdBy || null;
-  }
-  next();
-});
-
 const Volume = mongoose.model('Volume', volumeSchema);
 module.exports = Volume;

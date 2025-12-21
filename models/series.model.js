@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Joi = require('joi');
 
 // -----------------------------
-// 1. פונקציה ליצירת fileName אוטומטי (Slug)
+// 1. פונקציה ליצירת slug נקי (אבל לא נשתמש בה אוטומטית – נשאיר את fileName כפי שהמשתמש הקליד)
 // -----------------------------
 const createSlug = (text) => {
     if (!text) return '';
@@ -16,119 +16,113 @@ const createSlug = (text) => {
 };
 
 // -----------------------------
-// 2. סכמה של Series (סדרה)
+// 2. סכמה של Series (סדרה/קובץ)
 // -----------------------------
 const seriesSchema = new mongoose.Schema({
-    // שם מקדים (למשל: סדרת ספרי)
+    // שם מקדים
     prefixName: {
         type: String,
         trim: true,
-        default: null
+        enum: ["", "ספר זכרון", "קובץ זכרון", "קובץ תורני", "קובץ", "ספר", "ירכון", "ביטעון"],
+        default: ""
     },
 
-    // שם קובץ ל-URL (ייחודי, אוטומטי, חובה)
+    // שם הקובץ – חובה, ישמש גם כשם תצוגתי וגם כמזהה ב-URL
     fileName: {
         type: String,
         required: true,
-        unique: true,
-        trim: true,
-        lowercase: true
+        trim: true
+        // לא unique – כי אנחנו מאפשרים כפילות עם identifierName
     },
 
-    // מזהה נוסף/שם מזהה (למקרה של כפילות בשם)
+    // שם מזהה – חובה רק אם fileName כבר קיים
     identifierName: {
         type: String,
         trim: true,
-        default: null
+        default: ""
     },
 
-    // פרטים
+    // פרטים נוספים
     details: {
         type: String,
         trim: true,
-        default: null
+        default: ""
     },
 
-    // מחבר / עורכים
-    author: {
+    // עורך
+    editor: {
         type: String,
         trim: true,
-        default: null
+        default: ""
     },
 
     // מקום הוצאה
     publicationPlace: {
         type: String,
-        trim: true
+        trim: true,
     },
 
     // מגזר
     sector: {
         type: String,
         trim: true,
-        default: null
+        default: "",
+        enum: ["", "ליטאי", "חסידי", "ספרדי", "דתי"]
     },
 
     // סטטוס קטלוג
     catalogStatus: {
         type: String,
-        enum: ['חלקי', 'שלם'],
-        default: 'חלקי'
+        trim: true,
     },
 
-    // שנות הוצאה
+    // שנות הוצאה (מערך של שנים)
     publicationYears: {
-        type: String,
-        trim: true
-    },
-
-    // סה"כ גליונות – *אוטומטי, מנוהל ע"י Volume.js*
-    totalVolumes: {
-        type: Number,
-        default: 0
-    },
-
-    // רשימת IDs של הכרכים – *אוטומטי, מנוהל ע"י Volume.js*
-    volumes: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Volume',
+        type: [String],
         default: []
-    }],
+    },
 
-    // שדות מידע כללי (כפי שהיו בסכימה המקורית שלך)
-
-    //רשימת כרכים חסרים
+    // רשימת כרכים חסרים
     missingVolumesList: {
         type: String,
         trim: true,
-        default: ''
+        default: ""
     },
-    // הערות 
+
+    // הערות משתמש
     userNotes: {
         type: String,
         trim: true,
-        default: ''
+        default: ""
     },
 
-    //תאור הקוץ
+    // תיאור הקובץ
     fileDescription: {
         type: String,
         trim: true,
-        default: ''
+        default: ""
     },
-    // תמונת סדרה
+
+    // תמונת כריכה/תמונה מייצגת
     coverImage: {
         type: String,
-        default: 'default-series.jpg'
+        default: "default-series.jpg"
     },
-    // מ"ס אוטומטי
+
+    // מספר סידורי אוטומטי (אם צריך)
     msID: {
         type: String,
         trim: true,
-        default: null
+        default: ""
     },
 
-    // מי יצר/עדכן
+    // רשימת IDs של הכרכים הקשורים
+    volumes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Volume'
+    }],
+
+    // מי יצר ועדכן
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -148,40 +142,48 @@ const seriesSchema = new mongoose.Schema({
 // -----------------------------
 // 3. אינדקסים
 // -----------------------------
-seriesSchema.index({ fileName: 1 }, { unique: true });
-seriesSchema.index({ title: 1 }, { unique: true }); // ודאות שאין שמות סדרה זהים
+seriesSchema.index({ fileName: 1 });
 seriesSchema.index({ sector: 1, catalogStatus: 1 });
-seriesSchema.index({ author: 1 });
+seriesSchema.index({ editor: 1 });
 
 // -----------------------------
-// 4. Virtuals
+// 4. Virtual – ספירת כרכים
 // -----------------------------
-seriesSchema.virtual('volumeCount').get(function () {
+seriesSchema.virtual('totalVolumes').get(function () {
     return this.volumes ? this.volumes.length : 0;
 });
 
 // -----------------------------
-// 5. Pre-save: יצירת fileName אוטומטי + עדכון updatedBy
+// 5. Pre-save: ולידציה של כפילות fileName + ניהול identifierName
 // -----------------------------
 seriesSchema.pre('save', async function (next) {
     try {
-        // 1. יצירת fileName אוטומטי אם חסר
-        if (this.isNew || this.isModified('title')) {
-            let base = createSlug(this.title);
-
-            // וידוא ייחודיות (דומה למה שב-Volume.js)
-            let slug = base;
-            let counter = 1;
-            while (await mongoose.model('Series').countDocuments({ fileName: slug, _id: { $ne: this._id } })) {
-                slug = `${base}-${counter}`;
-                counter++;
-            }
-            this.fileName = slug;
+        // ניקוי בסיסי
+        if (this.fileName) {
+            this.fileName = this.fileName.trim();
+        }
+        if (this.identifierName) {
+            this.identifierName = this.identifierName.trim();
         }
 
-        // 2. עדכון updatedBy
-        if (this.isModified()) {
-            this.updatedBy = this.createdBy || null;
+        if (!this.fileName) {
+            return next(new Error('שם הקובץ הוא שדה חובה'));
+        }
+
+        // בדיקה אם קיים כבר מסמך עם אותו fileName (לא כולל את עצמו בעדכון)
+        const existingSeries = await mongoose.model('Series').findOne({
+            fileName: this.fileName,
+            _id: { $ne: this._id }
+        });
+
+        if (existingSeries) {
+            // יש כפילות → identifierName חובה
+            if (!this.identifierName) {
+                return next(new Error('קיים כבר קובץ עם שם זהה. חובה למלא "שם מזהה" כדי להבדיל ביניהם.'));
+            }
+        } else {
+            // אין כפילות → אפשר לנקות את identifierName כדי שלא ישאר מידע מיותר
+            this.identifierName = this.identifierName || "";
         }
 
         next();
@@ -190,16 +192,14 @@ seriesSchema.pre('save', async function (next) {
     }
 });
 
-
 // -----------------------------
-// 6. Post-remove: מחיקת כרכים קשורים (Cleanup)
+// 6. Post-remove: מחיקת כרכים קשורים
 // -----------------------------
 seriesSchema.post('remove', async function (doc, next) {
     try {
         const Volume = mongoose.model('Volume');
-        // מחיקת כל הכרכים שמקושרים לסדרה שנמחקה
         await Volume.deleteMany({ series: doc._id });
-        console.log(`Deleted ${doc.volumes.length} volumes associated with series ${doc._id}`);
+        console.log(`Deleted volumes associated with series ${doc._id}`);
         next();
     } catch (err) {
         next(err);
@@ -207,49 +207,44 @@ seriesSchema.post('remove', async function (doc, next) {
 });
 
 // -----------------------------
-// 7. וולידציה עם Joi
+// 7. ולידציה עם Joi
 // -----------------------------
 const objectId = Joi.string().pattern(/^[0-9a-fA-F]{24}$/, 'ObjectId');
 
 const seriesCreateSchema = Joi.object({
     prefixName: Joi.string().trim().allow('', null),
-    fileName: Joi.string().trim().lowercase().optional(), // אוטומטי – לא חייב לשלוח
+    fileName: Joi.string().trim().required(),
     identifierName: Joi.string().trim().allow('', null),
     details: Joi.string().trim().allow('', null),
-    author: Joi.string().trim().allow('', null),
+    editor: Joi.string().trim().allow('', null),
     publicationPlace: Joi.string().trim().allow('', null),
-    publicationYears: Joi.string().trim().allow('', null),
     sector: Joi.string().trim().allow('', null),
-    catalogStatus: Joi.string().valid('חלקי', 'שלם').optional(),
-
-    // שדות כלליים
-    dataCompleteness: Joi.string().trim().allow('', null),
+    catalogStatus: Joi.string().optional(),
+    publicationYears: Joi.array().items(Joi.string()).optional(),
     missingVolumesList: Joi.string().trim().allow('', null),
     userNotes: Joi.string().trim().allow('', null),
-    adminNotes: Joi.string().trim().allow('', null),
     fileDescription: Joi.string().trim().allow('', null),
     coverImage: Joi.string().trim().allow('', null),
     msID: Joi.string().trim().allow('', null),
 
-    // שדות אוטומטיים/מנוהלים – לא חובה בעת יצירה/עדכון
-    totalVolumes: Joi.number().integer().forbidden(),
-    volumes: Joi.array().items(objectId).forbidden(),
+    // שדות אוטומטיים – אסור לשלוח
+    volumes: Joi.array().forbidden(),
+    totalVolumes: Joi.any().forbidden(),
 
-    // מי יצר
     createdBy: objectId.required(),
 });
 
 const seriesUpdateSchema = seriesCreateSchema.fork(
-    Object.keys(seriesCreateSchema.describe().keys),
-    schema => schema.optional()
-).fork(['fileName'], schema => schema.forbidden()); // לא מאפשר לעדכן fileName ישירות
+    ['createdBy'], schema => schema.optional()
+).fork(
+    ['fileName'], schema => schema.optional()
+);
 
 seriesSchema.statics.validateCreate = (obj) =>
     seriesCreateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
 
 seriesSchema.statics.validateUpdate = (obj) =>
     seriesUpdateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
-
 
 // -----------------------------
 // 8. ייצוא

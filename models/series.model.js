@@ -20,101 +20,129 @@ const createSlug = (text) => {
 // -----------------------------
 const seriesSchema = new mongoose.Schema({
     // שם מקדים (למשל: סדרת ספרי)
-    prefixName: { 
-        type: String, 
-        trim: true, 
-        default: null 
-    }, 
-    
-    // שם ראשי (חובה, ייחודי)
-    title: { 
-        type: String, 
-        required: true, 
+    prefixName: {
+        type: String,
         trim: true,
-        unique: true
-    }, 
-    
-    // שם קובץ ל-URL (ייחודי, אוטומטי, חובה)
-    fileName: { 
-        type: String, 
-        required: true, 
-        unique: true, 
-        trim: true, 
-        lowercase: true 
+        default: null
     },
-    
-    // מזהה נוסף/שם מזהה (למקרה של כפילות בשם)
-    identifierName: { 
-        type: String, 
-        trim: true, 
-        default: null 
-    }, 
-    
-    // מחבר / עורכים
-    author: { 
-        type: String, 
-        trim: true, 
-        default: null 
-    }, 
-    
-    // מקום הוצאה
-    publicationPlace: { 
-        type: String, 
-        default: 'ישראל', 
-        trim: true 
-    }, 
-    
-    // מגזר
-    sector: { 
-        type: String, 
-        trim: true, 
-        default: null 
-    }, 
-    
-    // סטטוס קטלוג
-    catalogStatus: { 
-        type: String, 
-        enum: ['חלקי', 'שלם'], 
-        default: 'חלקי' 
-    }, 
 
-    // סה"כ כרכים – *אוטומטי, מנוהל ע"י Volume.js*
-    totalVolumes: { 
-        type: Number, 
-        default: 0 
-    }, 
-    
+    // שם קובץ ל-URL (ייחודי, אוטומטי, חובה)
+    fileName: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        lowercase: true
+    },
+
+    // מזהה נוסף/שם מזהה (למקרה של כפילות בשם)
+    identifierName: {
+        type: String,
+        trim: true,
+        default: null
+    },
+
+    // פרטים
+    details: {
+        type: String,
+        trim: true,
+        default: null
+    },
+
+    // מחבר / עורכים
+    author: {
+        type: String,
+        trim: true,
+        default: null
+    },
+
+    // מקום הוצאה
+    publicationPlace: {
+        type: String,
+        trim: true
+    },
+
+    // מגזר
+    sector: {
+        type: String,
+        trim: true,
+        default: null
+    },
+
+    // סטטוס קטלוג
+    catalogStatus: {
+        type: String,
+        enum: ['חלקי', 'שלם'],
+        default: 'חלקי'
+    },
+
+    // שנות הוצאה
+    publicationYears: {
+        type: String,
+        trim: true
+    },
+
+    // סה"כ גליונות – *אוטומטי, מנוהל ע"י Volume.js*
+    totalVolumes: {
+        type: Number,
+        default: 0
+    },
+
     // רשימת IDs של הכרכים – *אוטומטי, מנוהל ע"י Volume.js*
-    volumes: [{ 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Volume', 
-        default: [] 
-    }], 
+    volumes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Volume',
+        default: []
+    }],
 
     // שדות מידע כללי (כפי שהיו בסכימה המקורית שלך)
-    dataCompleteness: { type: String, trim: true, default: '' },
-    missingVolumesList: { type: String, trim: true, default: '' },
-    userNotes: { type: String, trim: true, default: '' },
-    adminNotes: { type: String, trim: true, default: '' },
-    fileDescription: { type: String, trim: true, default: '' },
-    coverImage: { type: String, default: 'default-series.jpg' }, 
-    msID: { type: String, trim: true, default: null }, // מ"ס אוטומטי
-    
-    // מי יצר/עדכן
-    createdBy: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User', 
-        required: true 
-    }, 
-    updatedBy: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User' 
+
+    //רשימת כרכים חסרים
+    missingVolumesList: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    // הערות 
+    userNotes: {
+        type: String,
+        trim: true,
+        default: ''
     },
 
-}, { 
-    timestamps: true, 
-    toJSON: { virtuals: true }, 
-    toObject: { virtuals: true } 
+    //תאור הקוץ
+    fileDescription: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    // תמונת סדרה
+    coverImage: {
+        type: String,
+        default: 'default-series.jpg'
+    },
+    // מ"ס אוטומטי
+    msID: {
+        type: String,
+        trim: true,
+        default: null
+    },
+
+    // מי יצר/עדכן
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+
+}, {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
 });
 
 // -----------------------------
@@ -128,7 +156,7 @@ seriesSchema.index({ author: 1 });
 // -----------------------------
 // 4. Virtuals
 // -----------------------------
-seriesSchema.virtual('volumeCount').get(function() {
+seriesSchema.virtual('volumeCount').get(function () {
     return this.volumes ? this.volumes.length : 0;
 });
 
@@ -185,11 +213,12 @@ const objectId = Joi.string().pattern(/^[0-9a-fA-F]{24}$/, 'ObjectId');
 
 const seriesCreateSchema = Joi.object({
     prefixName: Joi.string().trim().allow('', null),
-    title: Joi.string().trim().required(),
     fileName: Joi.string().trim().lowercase().optional(), // אוטומטי – לא חייב לשלוח
     identifierName: Joi.string().trim().allow('', null),
+    details: Joi.string().trim().allow('', null),
     author: Joi.string().trim().allow('', null),
     publicationPlace: Joi.string().trim().allow('', null),
+    publicationYears: Joi.string().trim().allow('', null),
     sector: Joi.string().trim().allow('', null),
     catalogStatus: Joi.string().valid('חלקי', 'שלם').optional(),
 
@@ -201,11 +230,11 @@ const seriesCreateSchema = Joi.object({
     fileDescription: Joi.string().trim().allow('', null),
     coverImage: Joi.string().trim().allow('', null),
     msID: Joi.string().trim().allow('', null),
-    
+
     // שדות אוטומטיים/מנוהלים – לא חובה בעת יצירה/עדכון
     totalVolumes: Joi.number().integer().forbidden(),
     volumes: Joi.array().items(objectId).forbidden(),
-    
+
     // מי יצר
     createdBy: objectId.required(),
 });

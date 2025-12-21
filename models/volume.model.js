@@ -90,15 +90,6 @@ const volumeSchema = new mongoose.Schema({
     default: ""
   },
 
-  // מספר סידורי (קוד פנימי ייחודי)
-  serialId: {
-    type: String,
-    trim: true,
-    unique: true,
-    sparse: true,
-    default: undefined
-  },
-
   // סדרה
   series: {
     type: mongoose.Schema.Types.ObjectId,
@@ -297,7 +288,6 @@ const volumeCreateSchema = Joi.object({
   coverType: Joi.string().valid('', 'קשה', 'רכה').allow(''),
   source: Joi.string().trim().allow('', null),
   catalogStatus: Joi.string().trim().allow('', null),
-  serialId: Joi.string().trim().allow('', null),
   series: objectId.required(),
 });
 

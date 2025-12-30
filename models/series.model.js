@@ -212,7 +212,7 @@ const seriesCreateSchema = Joi.object({
     editor: Joi.string().trim().allow('', null),
     publicationPlace: Joi.string().trim().allow('', null),
     sector: Joi.string().trim().allow('', null),
-    catalogStatus: Joi.string().optional(),
+    catalogStatus: Joi.string(),
     publicationYears: Joi.array().items(Joi.string()).optional(),
     missingVolumesList: Joi.string().trim().allow('', null),
     userNotes: Joi.string().trim().allow('', null),

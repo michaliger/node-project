@@ -6,17 +6,9 @@ const signToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, {
   expiresIn: process.env.JWT_EXPIRES_IN
 });
 
-exports.getMe = (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    data: {
-      user: req.user
-    }
-  });
-};
-
-const createsendtoken = (user, statusCode, res) => {
+const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
+
   res.status(statusCode).json({
     status: 'success',
     token,
@@ -25,28 +17,72 @@ const createsendtoken = (user, statusCode, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        idNumber: user.idNumber  // אפשר להחזיר או לא – לפי הצורך
       }
     }
   });
 };
 
-exports.signup = catchAsync(async (req, res) => {
-  const { error } = User.validateSignup(req.body);
+exports.getMe = (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    data: { user: req.user }
+  });
+};
+
+exports.signup = catchAsync(async (req, res, next) => {
+  console.log('נתונים שהתקבלו:', req.body);  // ← נראה מה בדיוק נשלח
+
+  const { name, email, password, idNumber } = req.body;
+
+  // ולידציה עם Joi
+  const { error } = User.validateSignup({ name, email, password, idNumber });
   if (error) {
-    const messages = error.details.map(err => err.message);
+    console.log('שגיאת ולידציה:', error.details);
+    const messages = error.details.map(d => d.message).join(', ');
     return res.status(400).json({
       status: 'fail',
-      message: messages.join(', ')
+      message: messages
     });
   }
 
-  const newUser = await User.create(req.body);
-  createsendtoken(newUser, 201, res);
+  // בדיקת כפילות
+  const existingUser = await User.findOne({
+    $or: [{ email }, { idNumber }]
+  });
+
+  if (existingUser) {
+    console.log('משתמש קיים:', existingUser);
+    return res.status(400).json({
+      status: 'fail',
+      message: 'אימייל או תעודת זהות כבר קיימים'
+    });
+  }
+
+  try {
+    const newUser = await User.create({
+      name,
+      email,
+      password,
+      idNumber
+    });
+
+    console.log('משתמש נוצר בהצלחה:', newUser);
+    createSendToken(newUser, 201, res);
+  } catch (err) {
+    console.error('שגיאה ב-User.create:', err);  // ← כאן נראה את השגיאה המדויקת!
+    res.status(500).json({
+      status: 'fail',
+      message: 'שגיאה ביצירת משתמש – ' + err.message
+    });
+  }
 });
 
-exports.login = catchAsync(async (req, res) => {
-  const { error } = User.validateLogin(req.body);
+exports.login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+
+  const { error } = User.validateLogin({ email, password });
   if (error) {
     return res.status(400).json({
       status: 'fail',
@@ -54,9 +90,7 @@ exports.login = catchAsync(async (req, res) => {
     });
   }
 
-  const { email, password } = req.body;
   const user = await User.findOne({ email }).select('+password');
-
   if (!user || !(await user.correctPassword(password))) {
     return res.status(401).json({
       status: 'fail',
@@ -64,5 +98,5 @@ exports.login = catchAsync(async (req, res) => {
     });
   }
 
-  createsendtoken(user, 200, res);
+  createSendToken(user, 200, res);
 });

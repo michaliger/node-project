@@ -8,6 +8,7 @@ const seriesRoutes = require('./routes/series.routes');
 const volumeRoutes = require('./routes/volume.routes');
 const subtitleRoutes = require('./routes/subtitle.routes');
 const authRoutes = require('./routes/auth.routes');
+console.log('authRoutes:', authRoutes);
 
 const cors = require('cors');
 

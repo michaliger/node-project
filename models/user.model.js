@@ -26,12 +26,7 @@ const userSchema = new mongoose.Schema({
     enum: ['admin', 'editor', 'viewer'],
     default: 'viewer'
   },
-  idNumber: {
-    type: String,
-    required: [true, 'חובה להזין מספר תעודת זהות'],
-    unique: true,
-    trim: true
-  }
+
 }, {
   timestamps: true
 });
@@ -61,10 +56,6 @@ userSchema.statics.validateSignup = (data) => {
     password: Joi.string().min(6).required().messages({
       'string.min': 'סיסמה חייבת להיות לפחות 6 תווים',
       'string.empty': 'סיסמה חובה'
-    }),
-    idNumber: Joi.string().pattern(/^\d{9}$/).required().messages({
-      'string.pattern.base': 'תעודת זהות חייבת להיות 9 ספרות',
-      'string.empty': 'תעודת זהות חובה'
     }),
     role: Joi.string().valid('admin', 'editor', 'viewer').default('viewer')
   });

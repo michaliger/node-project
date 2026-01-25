@@ -1,166 +1,62 @@
-// controllers/series.controller.js
 const Series = require('../models/series.model');
+const Volume = require('../models/volume.model');
+const Article = require('../models/subtitle.model'); // וודאי שייבאת את מודל המאמרים
 const catchAsync = require('../utils/catchAsync');
 
-// GET /api/series
-const getAllSeries = catchAsync(async (req, res) => {
-  const series = await Series.find()
-    .select('prefixName name fileName genre rarity volumeCount publicationYears')
-    .sort({ name: 1 });
+exports.createSeries = catchAsync(async (req, res) => {
+    // 1. חילוץ הנתונים מה-FormData
+    const allData = JSON.parse(req.body.seriesData);
+    
+    // 2. טיפול בתמונת כריכה לסדרה
+    const coverFile = req.files.find(f => f.fieldname === 'coverImage');
+    const seriesToSave = { ...allData };
+    if (coverFile) seriesToSave.coverImage = coverFile.path;
 
-  res.status(200).json({
-    status: 'success',
-    results: series.length,
-    data: { series }
-  });
-});
+    // 3. שמירת הסדרה (טבלה 1)
+    const newSeries = await Series.create(seriesToSave);
 
-// GET /api/series/:fileName
-const getSeriesBySlug = catchAsync(async (req, res) => {
-  const series = await Series.findOne({ fileName: req.params.fileName })
-    .populate({
-      path: 'volumes',
-      select: 'volumeNumber letter title fileName publicationYear mainTopic coverImage',
-      populate: {
-        path: 'subtitles',
-        select: 'serialNumber contentTitle category role authorFullName startPage',
-        populate: { path: 'additionalAuthor', select: 'authorFullName' }
-      }
-    });
+    // 4. ריצה על הגליונות (טבלה 2)
+    if (allData.volumes && allData.volumes.length > 0) {
+        for (let i = 0; i < allData.volumes.length; i++) {
+            const volData = allData.volumes[i];
+            
+            // מציאת ה-PDF של הגליון הספציפי
+            const pdfFile = req.files.find(f => f.fieldname === `pdf_vol_${i}`);
+            
+            const newVolume = await Volume.create({
+                ...volData,
+                series: newSeries._id, // הקישור לסדרה!
+                pdfPath: pdfFile ? pdfFile.path : null,
+                createdBy: allData.createdBy
+            });
 
-  if (!series) {
-    return res.status(404).json({ status: 'fail', message: 'סדרה לא נמצאה' });
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: { series }
-  });
-});
-// POST /api/series
-const createSeries = catchAsync(async (req, res) => {
-  // 1. ולידציה
-  const { error } = Series.validateCreate(req.body);
-  if (error) {
-    return res.status(400).json({
-      status: 'fail',
-      message: error.details[0].message
-    });
-  }
-
-  // 2. הכנת הנתונים – כאן אנחנו מוודאים ש-coverImage תקין
-  const data = {
-    prefixName: req.body.prefixName?.trim() || null,
-    fileName: req.body.fileName?.trim().toLowerCase(),
-    details: req.body.details?.trim() || null,
-    publicationPlace: req.body.publicationPlace?.trim() || null,
-    genre: req.body.genre?.trim() || null,
-    rarity: req.body.rarity?.trim() || null,
-    notes: req.body.notes?.trim() || null,
-
-    // הכי חשוב – תמונת הכריכה
-    coverImage: req.body.coverImage && req.body.coverImage.trim() !== ''
-      ? req.body.coverImage.trim()
-      : 'default-series.jpg',
-
-    // אם יש fileAlias
-    fileAlias: req.body.fileAlias
-      ? {
-          value: req.body.fileAlias.value?.trim() || null,
-          public: req.body.fileAlias.public === true
+            // 5. ריצה על המאמרים בתוך הגליון (טבלה 3)
+            // רק אם יש מאמרים והם לא ריקים
+            if (volData.articles && volData.articles.length > 0) {
+                const articlesWithLinks = volData.articles
+                    .filter(art => art.title) // שומר רק אם יש כותרת למאמר
+                    .map(art => ({
+                        ...art,
+                        volume: newVolume._id, // הקישור לגליון!
+                        series: newSeries._id, // קישור אופציונלי לסדרה
+                        createdBy: allData.createdBy
+                    }));
+                
+                if (articlesWithLinks.length > 0) {
+                    await Article.insertMany(articlesWithLinks);
+                }
+            }
+            
+            // עדכון ה-ID של הגליון בתוך הסדרה (אם המודל שלך דורש זאת)
+            await Series.findByIdAndUpdate(newSeries._id, {
+                $push: { volumes: newVolume._id }
+            });
         }
-      : { value: null, public: false },
-
-    // רשימת כרכים (אם שלחו)
-    volumes: Array.isArray(req.body.volumes) ? req.body.volumes : []
-  };
-
-  // 3. יצירת הסדרה
-  const series = await Series.create(data);
-
-  res.status(201).json({
-    status: 'success',
-    data: { series }
-  });
-});
-
-// PATCH /api/series/:id
-const updateSeries = catchAsync(async (req, res) => {
-  // 1. ולידציה
-  const { error } = Series.validateUpdate(req.body);
-  if (error) {
-    return res.status(400).json({
-      status: 'fail',
-      message: error.details[0].message
-    });
-  }
-
-  // 2. הכנת הנתונים לעדכון (אותו דבר כמו ב-create)
-  const data = {
-    prefixName: req.body.prefixName?.trim() || undefined,
-    fileName: req.body.fileName?.trim().toLowerCase(),
-    details: req.body.details?.trim() || undefined,
-    publicationPlace: req.body.publicationPlace?.trim() || undefined,
-    genre: req.body.genre?.trim() || undefined,
-    rarity: req.body.rarity?.trim() || undefined,
-    notes: req.body.notes?.trim() || undefined,
-
-    // תמונת כריכה – אם שלחו ריק → נחזיר לברירת מחדל
-    coverImage:
-      req.body.coverImage === null ||
-      (typeof req.body.coverImage === 'string' && req.body.coverImage.trim() === '')
-        ? 'default-series.jpg'
-        : req.body.coverImage?.trim(),
-
-    fileAlias: req.body.fileAlias
-      ? {
-          value: req.body.fileAlias.value?.trim() || null,
-          public: req.body.fileAlias.public === true
-        }
-      : undefined
-  };
-
-  // מוסיפים רק שדות ששלחו (כדי לא למחוק דברים שלא נשלחו)
-  const updateData = Object.fromEntries(
-    Object.entries(data).filter(([_, value]) => value !== undefined)
-  );
-
-  // 3. עדכון
-  const series = await Series.findByIdAndUpdate(
-    req.params.id,
-    updateData,
-    {
-      new: true,
-      runValidators: true
     }
-  );
 
-  if (!series) {
-    return res.status(404).json({
-      status: 'fail',
-      message: 'סדרה לא נמצאה'
+    res.status(201).json({
+        status: 'success',
+        message: 'הכל נשמר בנפרד ומקושר: סדרה, גליונות ומאמרים',
+        data: { series: newSeries }
     });
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: { series }
-  });
 });
-// DELETE /api/series/:id
-const deleteSeries = catchAsync(async (req, res) => {
-  const series = await Series.findByIdAndDelete(req.params.id);
-  if (!series) {
-    return res.status(404).json({ status: 'fail', message: 'סדרה לא נמצאה' });
-  }
-
-  res.status(204).json({ status: 'success', data: null });
-});
-
-module.exports = {
-  getAllSeries,
-  getSeriesBySlug,
-  createSeries,
-  updateSeries,
-  deleteSeries
-};

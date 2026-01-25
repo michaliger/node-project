@@ -1,18 +1,3 @@
-// const express = require('express');
-// const {
-//   signup,
-//   login,
-//   getMe                     // ← חייב להיות getMe עם M גדולה!
-// } = require('../controllers/auth.controller');
-// const { protect } = require('../middleware/auth');
-
-// const router = express.Router();
-
-// router.post('/signup', signup);
-// router.post('/login', login);
-// router.get('/me', protect, getMe);   // ← כאן בדיוק השורה 14 – חייב להיות getMe!
-
-// module.exports = router;
 const express = require('express')
 const router = express.Router()
 const bcrypt = require('bcryptjs')
@@ -34,6 +19,8 @@ router.post('/register', async (req, res) => {
       email,
       password: await bcrypt.hash(password, 10)
     })
+    console.log('סיסמה מקורית שהתקבלה:', password)
+    console.log('סיסמה מוצפנת שנשמרה:', user.password)
 
     await user.save()
 
@@ -54,17 +41,21 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body
 
+  console.log('ניסיון התחברות עם דוא"ל:', email)  // ← חשוב!
+
   try {
     const user = await User.findOne({ email })
+    console.log('משתמש שנמצא:', user ? 'כן, id: ' + user._id : 'לא נמצא')  // ← חשוב!
+
     if (!user) {
       return res.status(400).json({ message: 'דוא"ל או סיסמה שגויים' })
-      return
     }
 
     const isMatch = await bcrypt.compare(password, user.password)
+    console.log('הסיסמה תואמת?', isMatch)  // ← חשוב!
+
     if (!isMatch) {
-      res.status(400).json({ message: 'דוא"ל או סיסמה שגויים' })
-      return
+      return res.status(400).json({ message: 'דוא"ל או סיסמה שגויים' })
     }
 
     const token = jwt.sign({ userId: user._id }, 'michali-secret-key', { expiresIn: '7d' })

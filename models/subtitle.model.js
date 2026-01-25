@@ -1,72 +1,56 @@
 const mongoose = require('mongoose');
 const Joi = require('joi');
 
-// -----------------------------
-// 1. סכמה של Subtitle (כותרת משנה)
-// -----------------------------
 const subtitleSchema = new mongoose.Schema({
-  // מספר סידורי (למשל: 001, 002 – ייחודי בתוך הכרך)
   serialNumber: {
     type: String,
     required: true,
     trim: true,
     uppercase: true
   },
-
-  // הכותרת של התוכן
   contentTitle: {
     type: String,
     required: true,
     trim: true
   },
-
-  // על מקור (מאיפה לקוח התוכן)
   source: {
     type: String,
     trim: true,
     default: null
   },
-
-  // עמוד בכרך (היכן מתחיל)
   startPage: {
     type: Number,
     min: 1,
     default: null
   },
-
-  // נושא כללי
   generalTopic: {
     type: String,
     trim: true,
     default: ''
   },
-
-  // קישור להמשך בכרך הבא (אם יש)
+  // הקישור הקריטי לגליון האב
+  volume: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Volume',
+    required: true
+  },
   continuationInNextVolume: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Volume',
     default: null
   },
-
-  // הסבר בקישור
   linkedArticleId: {
     type: String,
     trim: true,
     enum: ['', 'בקורת', 'המשך', 'תגובה'],
     default: ''
   },
-
-  // מחברים – מערך של אובייקטים
-  authors: {
-    type: [{
-      titlePrefix: { type: String, trim: true, default: '' },      // תואר (רב, ד"ר, הרבנית...)
-      firstName:   { type: String, trim: true, default: '' },      // שם פרטי
-      lastName:    { type: String, trim: true, default: '' },      // שם משפחה
-      role:        { type: String, trim: true, default: 'מחבר' }  // תפקיד (מחבר, מפרש, עורך, מתרגם...)
-    }],
-    default: []   // מערך ריק בהתחלה
-  },
-
+  authors: [{
+    titlePrefix: { type: String, trim: true, default: '' },
+    firstName: { type: String, trim: true, default: '' },
+    lastName: { type: String, trim: true, default: '' },
+    role: { type: String, trim: true, default: 'מחבר' }
+  }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -82,33 +66,18 @@ const subtitleSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// -----------------------------
-// 2. אינדקסים
-// -----------------------------
+// --- אינדקסים ו-Virtuals ---
 subtitleSchema.index({ contentTitle: 1 });
-subtitleSchema.index({ startPage: 1 });
+subtitleSchema.index({ volume: 1 }); // אינדקס חדש לחיפוש מהיר לפי גליון
 
-// -----------------------------
-// 3. Virtual – תצוגת מחברים
-// -----------------------------
 subtitleSchema.virtual('authorsDisplay').get(function () {
-  if (this.authors.length === 0) return 'ללא מחבר';
+  if (!this.authors || this.authors.length === 0) return 'ללא מחבר';
   return this.authors
-    .map(a => {
-      let name = '';
-      if (a.titlePrefix) name += `${a.titlePrefix} `;
-      if (a.firstName) name += `${a.firstName} `;
-      if (a.lastName) name += `${a.lastName}`;
-      if (a.role && a.role !== 'מחבר') name += ` (${a.role})`;
-      return name.trim();
-    })
-    .filter(n => n)
+    .map(a => `${a.titlePrefix || ''} ${a.firstName || ''} ${a.lastName || ''} ${a.role !== 'מחבר' ? '(' + a.role + ')' : ''}`.trim())
     .join(' ו-');
 });
 
-// -----------------------------
-// 4. וולידציה עם Joi
-// -----------------------------
+// --- Joi Validation ---
 const objectId = Joi.string().pattern(/^[0-9a-fA-F]{24}$/, 'ObjectId');
 
 const subtitleCreateSchema = Joi.object({
@@ -117,6 +86,7 @@ const subtitleCreateSchema = Joi.object({
   source: Joi.string().trim().allow('', null),
   startPage: Joi.number().integer().min(1).allow(null),
   generalTopic: Joi.string().trim().allow(''),
+  volume: objectId.required(), // חובה בוולידציה
   continuationInNextVolume: objectId.allow(null),
   linkedArticleId: Joi.string().valid('', 'בקורת', 'המשך', 'תגובה').allow(''),
   authors: Joi.array().items(
@@ -130,21 +100,13 @@ const subtitleCreateSchema = Joi.object({
   createdBy: objectId.required()
 });
 
-const subtitleUpdateSchema = subtitleCreateSchema.fork(['createdBy'], schema => schema.optional());
-
 subtitleSchema.statics.validateCreate = (obj) => subtitleCreateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
-subtitleSchema.statics.validateUpdate = (obj) => subtitleUpdateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
 
-// -----------------------------
-// 5. pre-save – עדכון מי ערך
-// -----------------------------
+// --- Middleware ---
 subtitleSchema.pre('save', function (next) {
   this.updatedBy = this.createdBy || null;
   next();
 });
 
-// -----------------------------
-// 6. ייצוא
-// -----------------------------
 const Subtitle = mongoose.model('Subtitle', subtitleSchema);
 module.exports = Subtitle;

@@ -1,49 +1,42 @@
-const { seedFullSeries } = require('../controllers/seed.controller');
 const express = require('express');
-const {
-  getAllSeries,
-  getSeriesBySlug,
-  createSeries,
-  updateSeries,
-  deleteSeries
-
+const multer = require('multer');
+const path = require('path');
+const { 
+  getAllSeries, 
+  getSeriesBySlug, 
+  createSeries, // הפונקציה הזו תעודכן ב-Controller
+  updateSeries, 
+  deleteSeries 
 } = require('../controllers/series.controller');
+const { seedFullSeries } = require('../controllers/seed.controller');
 
-const { protect, restrictTo } = require('../middleware/auth');
-const Series = require('../models/series.model');
 const router = express.Router();
 
-// הגנה על כל הראוטים (אם את רוצה – אפשר להסיר)
-// router.use(protect);
+// --- הגדרת Multer לקליטת קבצים ---
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
 
-// GET /api/series
-// POST /api/series
+// הראוט המרכזי - הוספנו את upload.any() לפני ה-createSeries
 router
   .route('/')
   .get(getAllSeries)
-  .post(createSeries);
+  .post(upload.any(), createSeries); // כאן קורה הקסם שמקבל את הקבצים
 
-// GET /api/series/orot-tshuva
 router
   .route('/:fileName')
   .get(getSeriesBySlug);
 
-// PATCH /api/series/60d7...
-// DELETE /api/series/60d7...
 router
   .route('/:id')
   .patch(updateSeries)
   .delete(deleteSeries);
 
-router.post('/bulk', async (req, res) => {
-  try {
-    const series = req.body;
-    await Series.deleteMany({});        // אם את רוצה לנקות קודם
-    const inserted = await Series.insertMany(series);
-    res.status(201).json({ message: `הוכנסו ${inserted.length} סדרות בהצלחה!` });
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
 router.post('/seed-full', seedFullSeries);
+
 module.exports = router;

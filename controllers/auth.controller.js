@@ -18,7 +18,6 @@ const createSendToken = (user, statusCode, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        idNumber: user.idNumber  // אפשר להחזיר או לא – לפי הצורך
       }
     }
   });
@@ -32,14 +31,14 @@ exports.getMe = (req, res) => {
 };
 
 exports.signup = catchAsync(async (req, res, next) => {
-  console.log('נתונים שהתקבלו:', req.body);  // ← נראה מה בדיוק נשלח
+  console.log('נתונים שהתקבלו בהרשמה:', req.body);
 
-  const { name, email, password, idNumber } = req.body;
+  const { name, email, password } = req.body;
 
   // ולידציה עם Joi
-  const { error } = User.validateSignup({ name, email, password, idNumber });
+  const { error } = User.validateSignup({ name, email, password });
   if (error) {
-    console.log('שגיאת ולידציה:', error.details);
+    console.log('שגיאת ולידציה בהרשמה:', error.details);
     const messages = error.details.map(d => d.message).join(', ');
     return res.status(400).json({
       status: 'fail',
@@ -47,31 +46,27 @@ exports.signup = catchAsync(async (req, res, next) => {
     });
   }
 
-  // בדיקת כפילות
-  const existingUser = await User.findOne({
-    $or: [{ email }, { idNumber }]
-  });
+  // בדיקת כפילות - רק על אימייל
+  const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
 
   if (existingUser) {
-    console.log('משתמש קיים:', existingUser);
     return res.status(400).json({
       status: 'fail',
-      message: 'אימייל או תעודת זהות כבר קיימים'
+      message: 'האימייל כבר רשום במערכת'
     });
   }
 
   try {
     const newUser = await User.create({
       name,
-      email,
+      email: email.trim().toLowerCase(),
       password,
-      idNumber
     });
 
-    console.log('משתמש נוצר בהצלחה:', newUser);
+    console.log('משתמש נוצר בהצלחה:', newUser.email);
     createSendToken(newUser, 201, res);
   } catch (err) {
-    console.error('שגיאה ב-User.create:', err);  // ← כאן נראה את השגיאה המדויקת!
+    console.error('שגיאה ביצירת משתמש:', err);
     res.status(500).json({
       status: 'fail',
       message: 'שגיאה ביצירת משתמש – ' + err.message
@@ -82,21 +77,43 @@ exports.signup = catchAsync(async (req, res, next) => {
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
+  console.log('🔑 ניסיון התחברות עם:', { 
+    email: email?.trim().toLowerCase(), 
+    hasPassword: !!password 
+  });
+
+  // ולידציה בסיסית
   const { error } = User.validateLogin({ email, password });
   if (error) {
+    console.log('שגיאת ולידציה בהתחברות:', error.details);
     return res.status(400).json({
       status: 'fail',
       message: 'אימייל וסיסמה חובה'
     });
   }
 
-  const user = await User.findOne({ email }).select('+password');
-  if (!user || !(await user.correctPassword(password))) {
+  // חיפוש המשתמש + הבאת הסיסמה המוצפנת
+  const user = await User.findOne({ email: email.trim().toLowerCase() }).select('+password');
+  
+  console.log('👤 משתמש נמצא?', !!user);
+  if (user) {
+    console.log('אימייל במסד:', user.email);
+  }
+
+  // בדיקת סיסמה
+  let isPasswordCorrect = false;
+  if (user) {
+    isPasswordCorrect = await user.correctPassword(password);
+    console.log('✅ סיסמה תקינה?', isPasswordCorrect);
+  }
+
+  if (!user || !isPasswordCorrect) {
     return res.status(401).json({
       status: 'fail',
       message: 'אימייל או סיסמה שגויים'
     });
   }
 
+  console.log('🎉 התחברות הצליחה עבור:', user.email);
   createSendToken(user, 200, res);
 });

@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const colors = require('colors');
 const connectDB = require('./config/db');
+const path = require('path');
 
 // ראוטים
 const seriesRoutes = require('./routes/series.routes');
@@ -16,6 +17,7 @@ dotenv.config();
 connectDB();
 
 const app = express();
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
 // פתרון CORS – חייב להיות בדיוק ככה!

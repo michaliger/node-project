@@ -73,7 +73,12 @@ exports.createSeries = catchAsync(async (req, res) => {
 
 // עדכון סדרה
 exports.updateSeries = catchAsync(async (req, res) => {
-    const series = await Series.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // בעדכון רגיל (PATCH) אנחנו מעדכנים רק את שדות הסדרה
+    const series = await Series.findByIdAndUpdate(req.params.id, req.body, { 
+        new: true, 
+        runValidators: true 
+    }).populate('volumes');
+
     res.status(200).json({ status: 'success', data: { series } });
 });
 

@@ -33,6 +33,8 @@ exports.getSeriesBySlug = catchAsync(async (req, res) => {
 // פונקציה חכמה שגם יוצרת סדרה חדשה וגם מעדכנת סדרה קיימת
 exports.createSeries = catchAsync(async (req, res) => {
     const seriesData = JSON.parse(req.body.seriesData);
+    console.log("=== השרת קיבל בקשת שמירה ===");
+    console.log("ה-ID שהגיע מהריאקט הוא:", seriesData._id);
     const volumesData = req.body.volumes ? JSON.parse(req.body.volumes) : [];
 
     const coverFile = req.files && req.files.find(f => f.fieldname === 'coverImage');
@@ -82,7 +84,7 @@ exports.createSeries = catchAsync(async (req, res) => {
             }
         }
         await Series.findByIdAndUpdate(savedSeries._id, { volumes: currentVolumeIds });
-    } 
+    }
     // מצב ב': יצירת סדרה חדשה (אין מזהה)
     else {
         savedSeries = await Series.create(seriesData);
@@ -118,9 +120,9 @@ exports.createSeries = catchAsync(async (req, res) => {
 // עדכון סדרה
 exports.updateSeries = catchAsync(async (req, res) => {
     // בעדכון רגיל (PATCH) אנחנו מעדכנים רק את שדות הסדרה
-    const series = await Series.findByIdAndUpdate(req.params.id, req.body, { 
-        new: true, 
-        runValidators: true 
+    const series = await Series.findByIdAndUpdate(req.params.id, req.body, {
+        new: true,
+        runValidators: true
     }).populate('volumes');
 
     res.status(200).json({ status: 'success', data: { series } });

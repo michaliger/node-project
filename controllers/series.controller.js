@@ -30,45 +30,89 @@ exports.getSeriesBySlug = catchAsync(async (req, res) => {
 });
 
 // יצירת סדרה חדשה
+// פונקציה חכמה שגם יוצרת סדרה חדשה וגם מעדכנת סדרה קיימת
 exports.createSeries = catchAsync(async (req, res) => {
-    const allData = JSON.parse(req.body.seriesData);
-    const { volumes: volumesData, ...seriesToSave } = allData;
+    const seriesData = JSON.parse(req.body.seriesData);
+    const volumesData = req.body.volumes ? JSON.parse(req.body.volumes) : [];
 
-    const coverFile = req.files.find(f => f.fieldname === 'coverImage');
-    seriesToSave.coverImage = coverFile ? coverFile.path.replace(/\\/g, '/') : null;
-    seriesToSave.volumes = [];
+    const coverFile = req.files && req.files.find(f => f.fieldname === 'coverImage');
+    if (coverFile) {
+        seriesData.coverImage = coverFile.filename || coverFile.path.replace(/\\/g, '/');
+    }
 
-    const newSeries = await Series.create(seriesToSave);
+    let savedSeries;
 
-    if (volumesData && volumesData.length > 0) {
+    // מצב א': עריכת סדרה קיימת (יש מזהה)
+    if (seriesData._id) {
+        savedSeries = await Series.findByIdAndUpdate(seriesData._id, seriesData, { new: true });
+        const currentVolumeIds = [];
+
         for (let i = 0; i < volumesData.length; i++) {
             const volData = volumesData[i];
-            const { articles: articlesData, ...volumeToSave } = volData;
-            const pdfFile = req.files.find(f => f.fieldname === `pdf_vol_${i}`);
+            const pdfFile = req.files && req.files.find(f => f.fieldname === `pdfFile_${i}`);
+            if (pdfFile) volData.pdfPath = pdfFile.filename || pdfFile.path.replace(/\\/g, '/');
 
-            const newVolume = await Volume.create({
-                ...volumeToSave,
-                series: newSeries._id,
-                pdfPath: pdfFile ? pdfFile.path.replace(/\\/g, '/') : null,
-                articles: []
-            });
+            let savedVolume;
+            if (volData._id && volData._id.length === 24) {
+                savedVolume = await Volume.findByIdAndUpdate(volData._id, volData, { new: true });
+            } else {
+                volData.series = savedSeries._id;
+                savedVolume = await Volume.create(volData);
+            }
+            currentVolumeIds.push(savedVolume._id);
 
-            if (articlesData && articlesData.length > 0) {
-                const articlesToInsert = articlesData.map((art, idx) => ({
+            if (volData.articles && volData.articles.length > 0) {
+                const currentArticleIds = [];
+                for (let j = 0; j < volData.articles.length; j++) {
+                    const artData = volData.articles[j];
+                    artData.contentTitle = artData.title || artData.contentTitle;
+                    artData.startPage = parseInt(artData.page || artData.startPage) || 0;
+                    artData.volume = savedVolume._id;
+                    artData.series = savedSeries._id;
+
+                    let savedArticle;
+                    if (artData._id && artData._id.length === 24) {
+                        savedArticle = await Article.findByIdAndUpdate(artData._id, artData, { new: true });
+                    } else {
+                        savedArticle = await Article.create(artData);
+                    }
+                    currentArticleIds.push(savedArticle._id);
+                }
+                await Volume.findByIdAndUpdate(savedVolume._id, { articles: currentArticleIds });
+            }
+        }
+        await Series.findByIdAndUpdate(savedSeries._id, { volumes: currentVolumeIds });
+    } 
+    // מצב ב': יצירת סדרה חדשה (אין מזהה)
+    else {
+        savedSeries = await Series.create(seriesData);
+        const currentVolumeIds = [];
+
+        for (let i = 0; i < volumesData.length; i++) {
+            const volData = volumesData[i];
+            const pdfFile = req.files && req.files.find(f => f.fieldname === `pdfFile_${i}`);
+            if (pdfFile) volData.pdfPath = pdfFile.filename || pdfFile.path.replace(/\\/g, '/');
+
+            volData.series = savedSeries._id;
+            const newVolume = await Volume.create(volData);
+            currentVolumeIds.push(newVolume._id);
+
+            if (volData.articles && volData.articles.length > 0) {
+                const articlesToInsert = volData.articles.map(art => ({
+                    ...art,
                     contentTitle: art.title || art.contentTitle,
                     startPage: parseInt(art.page || art.startPage) || 0,
                     volume: newVolume._id,
-                    series: newSeries._id
+                    series: savedSeries._id
                 }));
                 const savedArticles = await Article.insertMany(articlesToInsert);
-                await Volume.findByIdAndUpdate(newVolume._id, {
-                    $set: { articles: savedArticles.map(a => a._id) }
-                });
+                await Volume.findByIdAndUpdate(newVolume._id, { articles: savedArticles.map(a => a._id) });
             }
-            await Series.findByIdAndUpdate(newSeries._id, { $push: { volumes: newVolume._id } });
         }
+        await Series.findByIdAndUpdate(savedSeries._id, { volumes: currentVolumeIds });
     }
-    res.status(201).json({ status: 'success', data: newSeries });
+
+    res.status(200).json({ status: 'success', data: { series: savedSeries } });
 });
 
 // עדכון סדרה

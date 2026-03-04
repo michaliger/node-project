@@ -39,5 +39,7 @@ router.route('/id/:id')
 // נתיב: /api/series/slug/:fileName
 router.route('/slug/:fileName')
     .get(seriesController.getSeriesBySlug);
+// נתיב לשמירת קטלוג מלא (כולל סדרה, גליונות, ומאמרים - תואם לבקשה מריאקט)
+router.post('/save-full-catalog', upload.any(), seriesController.createSeries);
 
 module.exports = router;

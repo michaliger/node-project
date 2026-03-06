@@ -19,9 +19,10 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'חובה להזין סיסמה'],
-    minlength: [6, 'סיסמה חייבת להיות לפחות 6 תווים']
+    minlength: [6, 'סיסמה חייבת להיות לפחות 6 תווים'],
+    select: false // <--- התוספת הקטנה ששומרת עלייך
   },
-  role: {
+   role: {
     type: String,
     enum: ['admin', 'editor', 'viewer'],
     default: 'viewer'
@@ -32,13 +33,13 @@ const userSchema = new mongoose.Schema({
 });
 
 // הצפנת סיסמה
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-userSchema.methods.correctPassword = async function(candidatePassword) {
+userSchema.methods.correctPassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 

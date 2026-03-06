@@ -17,10 +17,10 @@ router.post('/register', async (req, res) => {
     user = new User({
       name,
       email,
-      password: await bcrypt.hash(password, 10)
+      password // 🌟 התיקון: מעבירים את הסיסמה הרגילה, המודל כבר יצפין אותה לבד!
     })
+    
     console.log('סיסמה מקורית שהתקבלה:', password)
-    console.log('סיסמה מוצפנת שנשמרה:', user.password)
 
     await user.save()
 
@@ -40,19 +40,20 @@ router.post('/register', async (req, res) => {
 // התחברות
 router.post('/login', async (req, res) => {
   const { email, password } = req.body
-
-  console.log('ניסיון התחברות עם דוא"ל:', email)  // ← חשוב!
+  console.log('ניסיון התחברות עם דוא"ל:', email)
 
   try {
-    const user = await User.findOne({ email })
-    console.log('משתמש שנמצא:', user ? 'כן, id: ' + user._id : 'לא נמצא')  // ← חשוב!
+    // 🌟 הנה התיקון! הוספנו select('+password')
+    const user = await User.findOne({ email }).select('+password') 
+    
+    console.log('משתמש שנמצא:', user ? 'כן, id: ' + user._id : 'לא נמצא')
 
     if (!user) {
       return res.status(400).json({ message: 'דוא"ל או סיסמה שגויים' })
     }
 
     const isMatch = await bcrypt.compare(password, user.password)
-    console.log('הסיסמה תואמת?', isMatch)  // ← חשוב!
+    console.log('הסיסמה תואמת?', isMatch)
 
     if (!isMatch) {
       return res.status(400).json({ message: 'דוא"ל או סיסמה שגויים' })

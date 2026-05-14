@@ -43,11 +43,11 @@ app.use((req, res) => {
   });
 });
 
-// הפעלת השרת – חייב להיות בסוף הקובץ!
+// הפעלת השרת!
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT,'0.0.0.0', () => {
   console.log(`שרת רץ על פורט ${PORT} 🚀`.green.bold);
   console.log(`http://localhost:${PORT}`.cyan);
 });
 
-module.exports = app; // נשאר אם אתה מייבא במקום אחר (למשל בטסטים)
+module.exports = app; 

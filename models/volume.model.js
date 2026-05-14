@@ -9,16 +9,6 @@ const volumeSchema = new mongoose.Schema({
   publicationMonth: { type: String, default: null },
   occasion: { type: String, trim: true, default: null },
   pdfPath: { type: String, default: null },
-  volumeSize: {
-    type: String,
-    enum: ["", "גדול", "בינוני", "קטן"],
-    default: ""
-  },
-  coverType: {
-    type: String,
-    enum: ["", "קשה", "רכה"],
-    default: ""
-  },
   // מערך של ID של מאמרים (Subtitles)
   articles: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -47,8 +37,6 @@ const volumeCreateSchema = Joi.object({
   publicationYear: Joi.string().allow('', null),
   publicationMonth: Joi.string().allow('', null),
   occasion: Joi.string().trim().allow('', null),
-  volumeSize: Joi.string().valid("", "גדול", "בינוני", "קטן").allow(''),
-  coverType: Joi.string().valid("", "קשה", "רכה").allow(''),
   series: objectId.required(),
   createdBy: objectId.optional(),
   // מאפשרים לקבל מערך של ID במידה וכבר קיימים

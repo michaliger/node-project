@@ -12,7 +12,7 @@ const seriesSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true
-    },
+    }, 
     identifierName: {
         type: String,
         trim: true,

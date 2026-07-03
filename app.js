@@ -43,5 +43,3 @@ app.use((req, res) => {
 });
 
 module.exports = app;
-=======
->>>>>>> 5b1bbab5699cb8e63741045aedbe2fd0aa38cede

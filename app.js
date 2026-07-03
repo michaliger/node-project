@@ -19,17 +19,15 @@ connectDB();
 const app = express();
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-// פתרון CORS – חייב להיות בדיוק ככה!
+// פתרון CORS
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176'],
   credentials: true
 }));
-// ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
 
 app.use(express.json());
 
-// ראוטים
+// ראוטים (שימי לב לקידומת /api בפניות מה-React)
 app.use('/api/series', seriesRoutes);
 app.use('/api/volumes', volumeRoutes);
 app.use('/api/subtitles', subtitleRoutes);
@@ -43,11 +41,4 @@ app.use((req, res) => {
   });
 });
 
-// הפעלת השרת!
-const PORT = process.env.PORT || 5000;
-app.listen(PORT,'0.0.0.0', () => {
-  console.log(`שרת רץ על פורט ${PORT} 🚀`.green.bold);
-  console.log(`http://localhost:${PORT}`.cyan);
-});
-
-module.exports = app; 
+module.exports = app;

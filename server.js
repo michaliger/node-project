@@ -9,6 +9,7 @@ connectDB();
 
 const port = process.env.PORT || 5000;
 
-app.listen(port, () => {
-  console.log(`שרת רץ על פורט ${port} במצב ${process.env.NODE_ENV}`.yellow.bold);
+// הפעלת השרת והאזנה לפורט (כולל הגדרת ה-IP החיצוני עבור השרת המרוחק)
+app.listen(port, '0.0.0.0', () => {
+  console.log(`שרת רץ על פורט ${port} במצב ${process.env.NODE_ENV || 'development'}`.yellow.bold);
 });

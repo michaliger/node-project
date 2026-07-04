@@ -59,7 +59,7 @@ exports.createSeries = catchAsync(async (req, res) => {
             const pdfFile = req.files && req.files.find(f => f.fieldname === `pdfFile_${i}`);
             if (pdfFile) volData.pdfPath = pdfFile.filename || pdfFile.path.replace(/\\/g, '/');
 
-            // 🌟 התיקון הקריטי למניעת שגיאת E11000 (כפילות שמות):
+            // התיקון הקריטי למניעת שגיאת E11000 (כפילות שמות):
             volData.title = volData.volumeTitle || volData.title || `גליון ${volData.volumeNumber || (i + 1)}`;
             volData.volumeNumber = parseInt(volData.volumeNumber) || (i + 1);
 
@@ -82,9 +82,9 @@ exports.createSeries = catchAsync(async (req, res) => {
                 const currentArticleIds = [];
                 for (let j = 0; j < articlesTemp.length; j++) {
                     const artData = articlesTemp[j];
-                    console.log(`👉 בודק מאמר מספר ${j}:`, { title: artData.title, contentTitle: artData.contentTitle });
+                    console.log(`בודק מאמר מספר ${j}:`, { title: artData.title, contentTitle: artData.contentTitle });
                     if (!artData.title && !artData.contentTitle) {
-                        console.log("❌ המאמר נזרק לפח כי אין לו כותרת!");
+                        console.log("המאמר נזרק לפח כי אין לו כותרת!");
                         continue; // דילוג על ריקים
                     }
 
@@ -127,7 +127,7 @@ exports.createSeries = catchAsync(async (req, res) => {
             const pdfFile = req.files && req.files.find(f => f.fieldname === `pdfFile_${i}`);
             if (pdfFile) volData.pdfPath = pdfFile.filename || pdfFile.path.replace(/\\/g, '/');
 
-            // 🌟 התיקון הקריטי נמצא עכשיו גם כאן!
+            //התיקון הקריטי נמצא עכשיו גם כאן!
             volData.title = volData.volumeTitle || volData.title || `גליון ${volData.volumeNumber || (i + 1)}`;
             volData.volumeNumber = parseInt(volData.volumeNumber) || (i + 1);
 

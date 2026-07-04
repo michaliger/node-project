@@ -114,6 +114,6 @@ exports.login = catchAsync(async (req, res, next) => {
     });
   }
 
-  console.log('🎉 התחברות הצליחה עבור:', user.email);
+  console.log(' התחברות הצליחה עבור:', user.email);
   createSendToken(user, 200, res);
 });

@@ -17,7 +17,7 @@ router.post('/register', async (req, res) => {
     user = new User({
       name,
       email,
-      password // 🌟 התיקון: מעבירים את הסיסמה הרגילה, המודל כבר יצפין אותה לבד!
+      password // התיקון: מעבירים את הסיסמה הרגילה, המודל כבר יצפין אותה לבד!
     })
     
     console.log('סיסמה מקורית שהתקבלה:', password)
@@ -29,7 +29,7 @@ router.post('/register', async (req, res) => {
     res.status(201).json({
       token,
       user: { id: user._id, name: user.name, email: user.email },
-      message: 'נרשמת בהצלחה! ❤️'
+      message: 'נרשמת בהצלחה!'
     })
   } catch (err) {
     console.error(err)
@@ -43,7 +43,7 @@ router.post('/login', async (req, res) => {
   console.log('ניסיון התחברות עם דוא"ל:', email)
 
   try {
-    // 🌟 הנה התיקון! הוספנו select('+password')
+    //  הנה התיקון! הוספנו select('+password')
     const user = await User.findOne({ email }).select('+password') 
     
     console.log('משתמש שנמצא:', user ? 'כן, id: ' + user._id : 'לא נמצא')
@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
     res.json({
       token,
       user: { id: user._id, name: user.name, email: user.email, role: user.role }, 
-      message: 'התחברת בהצלחה! ❤️'
+      message: 'התחברת בהצלחה!'
     })
   } catch (err) {
     console.error(err)

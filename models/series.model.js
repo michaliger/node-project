@@ -102,10 +102,28 @@ seriesSchema.pre('save', async function (next) {
     }
 });
 
-// שינוי קטן כאן: שימוש ב-deleteMany כדי לוודא ניקיון יסודי ב-Atlas
-seriesSchema.post('remove', async function (doc, next) {
+// הערה חשובה: ה-hook הקודם היה רשום על 'remove', אבל הקוד בקונטרולרים קורא
+// ל-doc.deleteOne() (או ל-findByIdAndDelete) - ו-'remove' פשוט לא רץ יותר
+// ב-Mongoose המודרני. לכן ה-hooks הבאים רשומים על 'deleteOne', כדי שינוקו
+// באמת הכרכים (Volumes) המשויכים, לא משנה דרך איזה נתיב בקוד מוחקים את הסדרה.
+
+// מקרה 1: doc.deleteOne() על מסמך שכבר בזיכרון (כך עושה series.controller.js)
+seriesSchema.post('deleteOne', { document: true, query: false }, async function (doc) {
+    const volumeIds = await mongoose.model('Volume').find({ series: doc._id }).distinct('_id');
+    await mongoose.model('Subtitle').deleteMany({ volume: { $in: volumeIds } });
+    await mongoose.model('Volume').deleteMany({ series: doc._id });
+});
+
+// מקרה 2: מחיקה ישירה דרך שאילתה, למשל Series.findByIdAndDelete(id),
+// בלי לעבור דרך הקונטרולר הראשי - כדי שלא יישארו כרכים/מאמרים יתומים ב-Atlas
+seriesSchema.pre('findOneAndDelete', async function (next) {
     try {
-        await mongoose.model('Volume').deleteMany({ series: doc._id });
+        const doc = await this.model.findOne(this.getFilter());
+        if (doc) {
+            const volumeIds = await mongoose.model('Volume').find({ series: doc._id }).distinct('_id');
+            await mongoose.model('Subtitle').deleteMany({ volume: { $in: volumeIds } });
+            await mongoose.model('Volume').deleteMany({ series: doc._id });
+        }
         next();
     } catch (err) {
         next(err);

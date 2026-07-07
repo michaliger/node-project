@@ -1,5 +1,7 @@
 // controllers/volume.controller.js
 const Volume = require('../models/volume.model');
+const Subtitle = require('../models/subtitle.model');
+const Series = require('../models/series.model');
 const catchAsync = require('../utils/catchAsync');
 
 const getallvolumes = catchAsync(async (req, res) => {
@@ -69,10 +71,21 @@ const updatevolume = catchAsync(async (req, res) => {
 });
 
 const deletevolume = catchAsync(async (req, res) => {
-  const volume = await Volume.findByIdAndDelete(req.params.id);
+  const volume = await Volume.findById(req.params.id);
   if (!volume) {
     return res.status(404).json({ status: 'fail', message: 'כרך לא נמצא' });
   }
+
+  // מחיקת המאמרים המשויכים
+  await Subtitle.deleteMany({ volume: req.params.id });
+  
+  // הסרת הקשר מהסדרה
+  await Series.findByIdAndUpdate(volume.series, {
+    $pull: { volumes: volume._id }
+  });
+
+  // מחיקת הכרך
+  await volume.deleteOne();
 
   res.status(204).json({ status: 'success', data: null });
 });

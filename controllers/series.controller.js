@@ -1,7 +1,30 @@
+// controllers/series.controller.js
 const Series = require('../models/series.model');
 const Volume = require('../models/volume.model');
 const Article = require('../models/subtitle.model');
 const catchAsync = require('../utils/catchAsync');
+
+// מאמר נחשב "בעל תוכן" אם מולא בו לפחות שדה משמעותי אחד -
+// לא רק כותרת. כך מאמר עם מחבר בלבד, או מקור בלבד, או עמוד בלבד - עדיין נשמר.
+const hasArticleContent = (art) => {
+    if (!art) return false;
+    const hasText = (v) => typeof v === 'string' && v.trim() !== '';
+
+    if (hasText(art.title) || hasText(art.contentTitle)) return true;
+    if (hasText(art.source)) return true;
+    if (hasText(art.section)) return true;
+    if (hasText(art.generalTopic)) return true;
+    if (hasText(art.linkExplanation)) return true;
+    if (hasText(art.linkedArticleId)) return true;
+    if (art.page || art.startPage) return true;
+
+    if (Array.isArray(art.authors)) {
+        return art.authors.some(a =>
+            hasText(a?.firstName) || hasText(a?.lastName) || hasText(a?.titlePrefix) || hasText(a?.role)
+        );
+    }
+    return false;
+};
 
 // שליפת כל הסדרות
 exports.getAllSeries = catchAsync(async (req, res) => {
@@ -12,7 +35,7 @@ exports.getAllSeries = catchAsync(async (req, res) => {
     res.status(200).json({ status: 'success', data: { series } });
 });
 
-// שליפה לפי ID - חשוב מאוד לעריכה!
+// שליפה לפי ID
 exports.getSeriesById = catchAsync(async (req, res) => {
     const series = await Series.findById(req.params.id).populate({
         path: 'volumes',
@@ -29,15 +52,11 @@ exports.getSeriesBySlug = catchAsync(async (req, res) => {
     res.status(200).json({ status: 'success', data: { series } });
 });
 
-// יצירת סדרה חדשה
-// פונקציה חכמה שגם יוצרת סדרה חדשה וגם מעדכנת סדרה קיימת
-// יצירת סדרה חדשה או עדכון קיימת
 // יצירת סדרה חדשה או עדכון קיימת
 exports.createSeries = catchAsync(async (req, res) => {
     const seriesData = JSON.parse(req.body.seriesData);
     const volumesData = req.body.volumes ? JSON.parse(req.body.volumes) : [];
 
-    // טיפול בתמונת כריכה
     const coverFile = req.files && req.files.find(f => f.fieldname === 'coverImage');
     if (coverFile) {
         seriesData.coverImage = coverFile.filename || coverFile.path.replace(/\\/g, '/');
@@ -45,29 +64,21 @@ exports.createSeries = catchAsync(async (req, res) => {
 
     let savedSeries;
 
-    // ==========================================
-    // מצב א': עריכת סדרה קיימת
-    // ==========================================
     if (seriesData._id) {
         savedSeries = await Series.findByIdAndUpdate(seriesData._id, seriesData, { new: true });
         const currentVolumeIds = [];
 
         for (let i = 0; i < volumesData.length; i++) {
             const volData = volumesData[i];
-            
-            // PDF
             const pdfFile = req.files && req.files.find(f => f.fieldname === `pdfFile_${i}`);
             if (pdfFile) volData.pdfPath = pdfFile.filename || pdfFile.path.replace(/\\/g, '/');
 
-            // התיקון הקריטי למניעת שגיאת E11000 (כפילות שמות):
             volData.title = volData.volumeTitle || volData.title || `גליון ${volData.volumeNumber || (i + 1)}`;
             volData.volumeNumber = parseInt(volData.volumeNumber) || (i + 1);
 
-            // שומרים מאמרים בצד
             const articlesTemp = volData.articles || [];
             volData.articles = []; 
 
-            // שמירת כרך
             let savedVolume;
             if (volData._id && volData._id.length === 24) {
                 savedVolume = await Volume.findByIdAndUpdate(volData._id, volData, { new: true });
@@ -77,16 +88,11 @@ exports.createSeries = catchAsync(async (req, res) => {
             }
             currentVolumeIds.push(savedVolume._id);
 
-            // טיפול במאמרים
             if (articlesTemp.length > 0) {
                 const currentArticleIds = [];
                 for (let j = 0; j < articlesTemp.length; j++) {
                     const artData = articlesTemp[j];
-                    console.log(`בודק מאמר מספר ${j}:`, { title: artData.title, contentTitle: artData.contentTitle });
-                    if (!artData.title && !artData.contentTitle) {
-                        console.log("המאמר נזרק לפח כי אין לו כותרת!");
-                        continue; // דילוג על ריקים
-                    }
+                    if (!hasArticleContent(artData)) continue;
 
                     artData.contentTitle = artData.title || artData.contentTitle;
                     let parsedPage = parseInt(artData.page || artData.startPage);
@@ -112,38 +118,27 @@ exports.createSeries = catchAsync(async (req, res) => {
             }
         }
         await Series.findByIdAndUpdate(savedSeries._id, { volumes: currentVolumeIds });
-    }
-    // ==========================================
-    // מצב ב': יצירת סדרה חדשה לגמרי
-    // ==========================================
-    else {
+    } else {
         savedSeries = await Series.create(seriesData);
         const currentVolumeIds = [];
 
         for (let i = 0; i < volumesData.length; i++) {
             const volData = volumesData[i];
-            
-            // PDF
             const pdfFile = req.files && req.files.find(f => f.fieldname === `pdfFile_${i}`);
             if (pdfFile) volData.pdfPath = pdfFile.filename || pdfFile.path.replace(/\\/g, '/');
 
-            //התיקון הקריטי נמצא עכשיו גם כאן!
             volData.title = volData.volumeTitle || volData.title || `גליון ${volData.volumeNumber || (i + 1)}`;
             volData.volumeNumber = parseInt(volData.volumeNumber) || (i + 1);
 
-            // שומרים מאמרים בצד
             const articlesTemp = volData.articles || [];
             volData.articles = [];
 
-            // יצירת הכרך
             volData.series = savedSeries._id;
             const newVolume = await Volume.create(volData);
             currentVolumeIds.push(newVolume._id);
 
-            // טיפול במאמרים
             if (articlesTemp.length > 0) {
-                const validArticles = articlesTemp.filter(art => art.title || art.contentTitle);
-                
+                const validArticles = articlesTemp.filter(hasArticleContent);
                 const articlesToInsert = validArticles.map((art, idx) => {
                     let parsedPage = parseInt(art.page || art.startPage);
                     return {
@@ -172,7 +167,6 @@ exports.createSeries = catchAsync(async (req, res) => {
 
 // עדכון סדרה
 exports.updateSeries = catchAsync(async (req, res) => {
-    // בעדכון רגיל (PATCH) אנחנו מעדכנים רק את שדות הסדרה
     const series = await Series.findByIdAndUpdate(req.params.id, req.body, {
         new: true,
         runValidators: true
@@ -181,8 +175,24 @@ exports.updateSeries = catchAsync(async (req, res) => {
     res.status(200).json({ status: 'success', data: { series } });
 });
 
-// מחיקת סדרה
+// מחיקת סדרה - תיקון מלא לניקוי נתונים
 exports.deleteSeries = catchAsync(async (req, res) => {
-    await Series.findByIdAndDelete(req.params.id);
+    const series = await Series.findById(req.params.id);
+    if (!series) return res.status(404).json({ status: 'fail', message: 'לא נמצא' });
+
+    // חשוב: ל-Subtitle (המאמרים) אין שדה 'series' בסכמה - יש לו רק שדה 'volume'.
+    // לכן קודם שולפים את כל ה-IDs של הכרכים השייכים לסדרה הזו,
+    // ורק דרכם מוחקים את המאמרים המשויכים.
+    const volumeIds = await Volume.find({ series: series._id }).distinct('_id');
+
+    // מחיקת כל המאמרים המשויכים לכרכים האלה
+    await Article.deleteMany({ volume: { $in: volumeIds } });
+
+    // מחיקת כל הכרכים המשויכים
+    await Volume.deleteMany({ series: series._id });
+
+    // מחיקת הסדרה עצמה
+    await series.deleteOne();
+
     res.status(204).json({ status: 'success', data: null });
 });

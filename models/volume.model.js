@@ -73,7 +73,16 @@ const updateSeriesYears = async function (doc) {
 };
 
 volumeSchema.post('save', updateSeriesYears);
-volumeSchema.post('remove', updateSeriesYears);
+
+// 'remove' לא רץ יותר ב-Mongoose המודרני (הקונטרולרים קוראים ל-deleteOne/findByIdAndDelete),
+// אז נרשמים במקום זאת על אירועים שבאמת מתרחשים:
+volumeSchema.post('deleteOne', { document: true, query: false }, async function (doc) {
+    await updateSeriesYears(doc);
+});
+
+volumeSchema.post('findOneAndDelete', async function (doc) {
+    if (doc) await updateSeriesYears(doc);
+});
 
 const Volume = mongoose.model('Volume', volumeSchema);
 module.exports = Volume;

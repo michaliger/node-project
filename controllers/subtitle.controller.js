@@ -1,5 +1,6 @@
 // controllers/subtitle.controller.js
 const Subtitle = require('../models/subtitle.model');
+const Volume = require('../models/volume.model');
 const catchAsync = require('../utils/catchAsync');
 
 const getallsubtitles = catchAsync(async (req, res) => {
@@ -61,15 +62,18 @@ const updatesubtitle = catchAsync(async (req, res) => {
 });
 
 const deletesubtitle = catchAsync(async (req, res) => {
+  // 1. קודם כל ננסה למחוק את המאמר עצמו
   const subtitle = await Subtitle.findByIdAndDelete(req.params.id);
+  
   if (!subtitle) {
     return res.status(404).json({ status: 'fail', message: 'כותרת משנה לא נמצאה' });
   }
 
-  const Volume = require('../models/Volume');
+  // 2. לאחר מכן ננקה את ה-ID מהמערך בתוך ה-Volume
+  // חשוב לוודא ששם השדה הוא אכן 'articles' כפי שמופיע במודל Volume
   await Volume.updateMany(
-    { subtitles: req.params.id },
-    { $pull: { subtitles: req.params.id } }
+    { articles: req.params.id },
+    { $pull: { articles: req.params.id } }
   );
 
   res.status(204).json({ status: 'success', data: null });

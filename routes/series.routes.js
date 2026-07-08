@@ -1,38 +1,38 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 // ייבוא הקונטרולר
 const seriesController = require('../controllers/series.controller');
 
-// ==========================================
-// 1. הגדרות Multer להעלאת קבצים
-// ==========================================
+// ==========================================\
+// 1. הגדרות Cloudinary ו-Multer להעלאת קבצים לענן
+// ==========================================\
 
-// יצירת תיקיית uploads אם היא לא קיימת
-const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+// הגדרת החיבור לענן שלך לפי הפרטים שקיבלת
+cloudinary.config({
+  cloud_name: 'zqgbyjp9',
+  api_key: '346468923129492',
+  api_secret: 'dWQxubxrZUdtO16oGASqCSXmGdQ'
+});
 
-// הגדרת אחסון הקבצים
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir); 
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
+// הגדרת האחסון שיעלה ישירות לענן במקום לדיסק של השרת
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'torahfiles_uploads', // שם התיקייה שתיפתח אוטומטית בענן שלך
+    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'], // סוגי קבצים מותרים
+    resource_type: 'auto' // מאפשר העלאת PDF ותמונות יחד
+  },
 });
 
 const upload = multer({ storage: storage });
 
-// ==========================================
-// 2. הראוטים הרגילים שלך (CRUD)
-// ==========================================
+// ==========================================\
+// 2. הראוטים הרגילים (CRUD)
+// ==========================================\
 
 router.route('/')
     .get(seriesController.getAllSeries);
@@ -45,12 +45,8 @@ router.route('/id/:id')
 router.route('/slug/:fileName')
     .get(seriesController.getSeriesBySlug);
 
-// ==========================================
-// 3. הראוט המיוחד: שמירה מאוחדת (מפנה לקונטרולר החכם שלנו!)
-// ==========================================
-
-// הראוט החדש והמשולב לשמירת כל הקטלוג (סדרה + גליונות + מאמרים) כולל העלאת קבצים
+// הראוט המשולב לשמירת כל הקטלוג (סדרה + גליונות + מאמרים) כולל העלאת קבצים ישירות לענן
 router.route('/save-full-catalog')
-    .post(upload.any(), seriesController.createSeries); // <-- הוספנו את upload.any() כאן!
+    .post(upload.any(), seriesController.createSeries);
 
 module.exports = router;

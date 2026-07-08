@@ -8,6 +8,11 @@ const subtitleSchema = new mongoose.Schema({
     trim: true,
     uppercase: true
   },
+  section: { // <-- התווסף לסכמה
+    type: String,
+    trim: true,
+    default: ''
+  },
   contentTitle: {
     type: String,
     required: true,
@@ -82,6 +87,7 @@ const objectId = Joi.string().pattern(/^[0-9a-fA-F]{24}$/, 'ObjectId');
 
 const subtitleCreateSchema = Joi.object({
   serialNumber: Joi.string().trim().uppercase().required(),
+  section: Joi.string().trim().allow(''), // <-- התווסף לוולידציה של Joi
   contentTitle: Joi.string().trim().required(),
   source: Joi.string().trim().allow('', null),
   startPage: Joi.number().integer().min(1).allow(null),

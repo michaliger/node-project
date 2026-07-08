@@ -101,6 +101,7 @@ exports.createSeries = catchAsync(async (req, res) => {
                     if (!hasArticleContent(artData)) continue;
 
                     artData.contentTitle = artData.title || artData.contentTitle || 'ללא כותרת';
+                    artData.section = artData.section || ''; // אבטחת קיום השדה בעדכון
                     let parsedPage = parseInt(artData.page || artData.startPage);
                     artData.startPage = (parsedPage && parsedPage >= 1) ? parsedPage : 1;
                     artData.volume = savedVolume._id;
@@ -150,6 +151,7 @@ exports.createSeries = catchAsync(async (req, res) => {
                     return {
                         ...art,
                         contentTitle: art.title || art.contentTitle || 'ללא כותרת',
+                        section: art.section || '', // הוספה מפורשת ביצירת מאמר חדש מאפס
                         startPage: (parsedPage && parsedPage >= 1) ? parsedPage : 1,
                         volume: newVolume._id,
                         series: savedSeries._id,

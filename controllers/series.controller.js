@@ -4,26 +4,32 @@ const Volume = require('../models/volume.model');
 const Article = require('../models/subtitle.model');
 const catchAsync = require('../utils/catchAsync');
 
-// מאמר נחשב "בעל תוכן" אם מולא בו לפחות שדה משמעותי אחד -
-// לא רק כותרת. כך מאמר עם מחבר בלבד, או מקור בלבד, או עמוד בלבד - עדיין נשמר.
+// פונקציה משופרת: בודקת אם יש ערך כלשהו במאמר (לא משנה איזה שדה)
 const hasArticleContent = (art) => {
     if (!art) return false;
-    const hasText = (v) => typeof v === 'string' && v.trim() !== '';
-
-    if (hasText(art.title) || hasText(art.contentTitle)) return true;
-    if (hasText(art.source)) return true;
-    if (hasText(art.section)) return true;
-    if (hasText(art.generalTopic)) return true;
-    if (hasText(art.linkExplanation)) return true;
-    if (hasText(art.linkedArticleId)) return true;
-    if (art.page || art.startPage) return true;
-
-    if (Array.isArray(art.authors)) {
-        return art.authors.some(a =>
-            hasText(a?.firstName) || hasText(a?.lastName) || hasText(a?.titlePrefix) || hasText(a?.role)
-        );
-    }
-    return false;
+    
+    // מעבר על כל המפתחות של האובייקט (חוץ משדות אוטומטיים/מערכים)
+    return Object.entries(art).some(([key, value]) => {
+        if (key === '_id' || key === 'id' || key === 'volume' || key === 'series') return false;
+        
+        // אם זה מחרוזת טקסט - בודק שאינה ריקה
+        if (typeof value === 'string' && value.trim() !== '') return true;
+        
+        // אם זה מספר (למשל עמוד)
+        if (typeof value === 'number' && !isNaN(value)) return true;
+        
+        // אם מדובר במערך המחברים
+        if (key === 'authors' && Array.isArray(value)) {
+            return value.some(a => 
+                (a?.firstName && a.firstName.trim() !== '') || 
+                (a?.lastName && a.lastName.trim() !== '') ||
+                (a?.titlePrefix && a.titlePrefix.trim() !== '') ||
+                (a?.role && a.role.trim() !== '')
+            );
+        }
+        
+        return false;
+    });
 };
 
 // שליפת כל הסדרות
@@ -94,7 +100,7 @@ exports.createSeries = catchAsync(async (req, res) => {
                     const artData = articlesTemp[j];
                     if (!hasArticleContent(artData)) continue;
 
-                    artData.contentTitle = artData.title || artData.contentTitle;
+                    artData.contentTitle = artData.title || artData.contentTitle || 'ללא כותרת';
                     let parsedPage = parseInt(artData.page || artData.startPage);
                     artData.startPage = (parsedPage && parsedPage >= 1) ? parsedPage : 1;
                     artData.volume = savedVolume._id;
@@ -143,7 +149,7 @@ exports.createSeries = catchAsync(async (req, res) => {
                     let parsedPage = parseInt(art.page || art.startPage);
                     return {
                         ...art,
-                        contentTitle: art.title || art.contentTitle,
+                        contentTitle: art.title || art.contentTitle || 'ללא כותרת',
                         startPage: (parsedPage && parsedPage >= 1) ? parsedPage : 1,
                         volume: newVolume._id,
                         series: savedSeries._id,
@@ -180,18 +186,10 @@ exports.deleteSeries = catchAsync(async (req, res) => {
     const series = await Series.findById(req.params.id);
     if (!series) return res.status(404).json({ status: 'fail', message: 'לא נמצא' });
 
-    // חשוב: ל-Subtitle (המאמרים) אין שדה 'series' בסכמה - יש לו רק שדה 'volume'.
-    // לכן קודם שולפים את כל ה-IDs של הכרכים השייכים לסדרה הזו,
-    // ורק דרכם מוחקים את המאמרים המשויכים.
     const volumeIds = await Volume.find({ series: series._id }).distinct('_id');
 
-    // מחיקת כל המאמרים המשויכים לכרכים האלה
     await Article.deleteMany({ volume: { $in: volumeIds } });
-
-    // מחיקת כל הכרכים המשויכים
     await Volume.deleteMany({ series: series._id });
-
-    // מחיקת הסדרה עצמה
     await series.deleteOne();
 
     res.status(204).json({ status: 'success', data: null });

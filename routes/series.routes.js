@@ -49,6 +49,8 @@ router.route('/slug/:fileName')
 // 3. הראוט המיוחד: שמירה מאוחדת (מפנה לקונטרולר החכם שלנו!)
 // ==========================================
 
-router.post('/save-full-catalog', upload.any(), seriesController.createSeries);
+// הראוט החדש והמשולב לשמירת כל הקטלוג (סדרה + גליונות + מאמרים) כולל העלאת קבצים
+router.route('/save-full-catalog')
+    .post(upload.any(), seriesController.createSeries); // <-- הוספנו את upload.any() כאן!
 
 module.exports = router;

@@ -7,27 +7,27 @@ const catchAsync = require('../utils/catchAsync');
 // פונקציה משופרת: בודקת אם יש ערך כלשהו במאמר (לא משנה איזה שדה)
 const hasArticleContent = (art) => {
     if (!art) return false;
-    
+
     // מעבר על כל המפתחות של האובייקט (חוץ משדות אוטומטיים/מערכים)
     return Object.entries(art).some(([key, value]) => {
         if (key === '_id' || key === 'id' || key === 'volume' || key === 'series') return false;
-        
+
         // אם זה מחרוזת טקסט - בודק שאינה ריקה
         if (typeof value === 'string' && value.trim() !== '') return true;
-        
+
         // אם זה מספר (למשל עמוד)
         if (typeof value === 'number' && !isNaN(value)) return true;
-        
+
         // אם מדובר במערך המחברים
         if (key === 'authors' && Array.isArray(value)) {
-            return value.some(a => 
-                (a?.firstName && a.firstName.trim() !== '') || 
+            return value.some(a =>
+                (a?.firstName && a.firstName.trim() !== '') ||
                 (a?.lastName && a.lastName.trim() !== '') ||
                 (a?.titlePrefix && a.titlePrefix.trim() !== '') ||
                 (a?.role && a.role.trim() !== '')
             );
         }
-        
+
         return false;
     });
 };
@@ -65,9 +65,9 @@ exports.createSeries = catchAsync(async (req, res) => {
 
     const coverFile = req.files && req.files.find(f => f.fieldname === 'coverImage');
     if (coverFile) {
-        seriesData.coverImage = coverFile.filename || coverFile.path.replace(/\\/g, '/');
+        // לוקח את שם הקובץ הטהור. אם אין filename, הוא מנקה את ה-path כך שיישאר רק השם
+        seriesData.coverImage = coverFile.filename || coverFile.path.split(/[\\/]/).pop();
     }
-
     let savedSeries;
 
     if (seriesData._id) {
@@ -83,7 +83,7 @@ exports.createSeries = catchAsync(async (req, res) => {
             volData.volumeNumber = parseInt(volData.volumeNumber) || (i + 1);
 
             const articlesTemp = volData.articles || [];
-            volData.articles = []; 
+            volData.articles = [];
 
             let savedVolume;
             if (volData._id && volData._id.length === 24) {
@@ -106,7 +106,7 @@ exports.createSeries = catchAsync(async (req, res) => {
                     artData.startPage = (parsedPage && parsedPage >= 1) ? parsedPage : 1;
                     artData.volume = savedVolume._id;
                     artData.series = savedSeries._id;
-                    artData.createdBy = savedSeries._id; 
+                    artData.createdBy = savedSeries._id;
                     artData.serialNumber = artData.autoId ? artData.autoId.toString() : (j + 1).toString();
 
                     if (!artData.linkedArticleId || artData.linkedArticleId === "") {
@@ -155,12 +155,12 @@ exports.createSeries = catchAsync(async (req, res) => {
                         startPage: (parsedPage && parsedPage >= 1) ? parsedPage : 1,
                         volume: newVolume._id,
                         series: savedSeries._id,
-                        createdBy: savedSeries._id, 
+                        createdBy: savedSeries._id,
                         serialNumber: art.autoId ? art.autoId.toString() : (idx + 1).toString(),
                         linkedArticleId: (!art.linkedArticleId || art.linkedArticleId === "") ? null : art.linkedArticleId
                     };
                 });
-                
+
                 if (articlesToInsert.length > 0) {
                     const savedArticles = await Article.insertMany(articlesToInsert);
                     await Volume.findByIdAndUpdate(newVolume._id, { articles: savedArticles.map(a => a._id) });

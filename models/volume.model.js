@@ -9,7 +9,7 @@ const volumeSchema = new mongoose.Schema({
   publicationMonth: { type: String, default: null },
   occasion: { type: String, trim: true, default: null },
   pdfPath: { type: String, default: null },
-  // מערך של ID של מאמרים (Subtitles)
+  // מערך של ID של מאמרים
   articles: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subtitle'
@@ -39,11 +39,23 @@ const volumeCreateSchema = Joi.object({
   occasion: Joi.string().trim().allow('', null),
   series: objectId.required(),
   createdBy: objectId.optional(),
-  // מאפשרים לקבל מערך של ID במידה וכבר קיימים
   articles: Joi.array().items(objectId).default([])
 });
 
+// וולידציה עבור עדכון (PATCH)
+const volumeUpdateSchema = Joi.object({
+  volumeNumber: Joi.number().min(1).optional(),
+  title: Joi.string().trim().allow('', null).optional(),
+  mainTopic: Joi.string().trim().allow('', null).optional(),
+  publicationYear: Joi.string().allow('', null).optional(),
+  publicationMonth: Joi.string().allow('', null).optional(),
+  occasion: Joi.string().trim().allow('', null).optional(),
+  series: objectId.optional(),
+  articles: Joi.array().items(objectId).optional()
+});
+
 volumeSchema.statics.validateCreate = (obj) => volumeCreateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
+volumeSchema.statics.validateUpdate = (obj) => volumeUpdateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
 
 // --- Hooks & Virtuals ---
 
@@ -74,8 +86,6 @@ const updateSeriesYears = async function (doc) {
 
 volumeSchema.post('save', updateSeriesYears);
 
-// 'remove' לא רץ יותר ב-Mongoose המודרני (הקונטרולרים קוראים ל-deleteOne/findByIdAndDelete),
-// אז נרשמים במקום זאת על אירועים שבאמת מתרחשים:
 volumeSchema.post('deleteOne', { document: true, query: false }, async function (doc) {
     await updateSeriesYears(doc);
 });

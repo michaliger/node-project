@@ -24,7 +24,7 @@ const getPublicIdFromUrl = (url) => {
 
 const getallvolumes = catchAsync(async (req, res) => {
   const volumes = await Volume.find()
-    .select('volumeNumber letter title fileName publicationYear series coverImage')
+    .select('volumeNumber letter title fileName publicationYear volumeEditor series coverImage')
     .populate('series', 'name fileName')
     .sort({ 'series.name': 1, volumeNumber: 1 });
 

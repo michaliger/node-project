@@ -8,6 +8,7 @@ const volumeSchema = new mongoose.Schema({
   publicationYear: { type: String, default: null },
   publicationMonth: { type: String, default: null },
   occasion: { type: String, trim: true, default: null },
+  volumeEditor: { type: String, trim: true, default: null },
   pdfPath: { type: String, default: null },
   // מערך של ID של מאמרים
   articles: [{
@@ -37,6 +38,7 @@ const volumeCreateSchema = Joi.object({
   publicationYear: Joi.string().allow('', null),
   publicationMonth: Joi.string().allow('', null),
   occasion: Joi.string().trim().allow('', null),
+  volumeEditor: Joi.string().trim().allow('', null),
   series: objectId.required(),
   createdBy: objectId.optional(),
   articles: Joi.array().items(objectId).default([])
@@ -50,6 +52,7 @@ const volumeUpdateSchema = Joi.object({
   publicationYear: Joi.string().allow('', null).optional(),
   publicationMonth: Joi.string().allow('', null).optional(),
   occasion: Joi.string().trim().allow('', null).optional(),
+  volumeEditor: Joi.string().trim().allow('', null).optional(),
   series: objectId.optional(),
   articles: Joi.array().items(objectId).optional()
 });

@@ -9,6 +9,7 @@ cloudinary.config({
     api_key: '346468923129492',
     api_secret: 'dWQxubxrZUdtO16oGASqCSXmGdQ'
 });
+
 // פונקציה משופרת: בודקת אם יש ערך כלשהו במאמר
 const hasArticleContent = (art) => {
     if (!art) return false;
@@ -118,18 +119,31 @@ exports.createSeries = catchAsync(async (req, res) => {
                 const artData = articlesTemp[j];
                 if (!hasArticleContent(artData)) continue;
 
+                // ✅ ניקוי וניסיון נכון של הנתונים
                 artData.contentTitle = artData.title || artData.contentTitle || 'ללא כותרת';
                 artData.section = artData.section || '';
                 let parsedPage = parseInt(artData.page || artData.startPage);
                 artData.startPage = (parsedPage && parsedPage >= 1) ? parsedPage : 1;
+                
+                // ✅ קישורים נכונים לסדרה וגליון
                 artData.volume = savedVolume._id;
                 artData.series = savedSeries._id;
-                artData.createdBy = savedSeries._id;
+                
+                // ✅ createdBy צריך להיות משתמש
+                if (!artData.createdBy) {
+                    artData.createdBy = null;
+                }
+                
+                // ✅ serialNumber - למספור סדרתי
                 artData.serialNumber = artData.autoId ? artData.autoId.toString() : (j + 1).toString();
 
+                // ✅ linkedArticleId צריך להיות null אם ריק
                 if (!artData.linkedArticleId || artData.linkedArticleId === "") {
                     artData.linkedArticleId = null;
                 }
+
+                // ✅ שדות חדשים - חשוב מאוד!
+                artData.note = artData.note || '';
 
                 let savedArticle;
                 const articleId = artData._id || artData.id;
@@ -166,14 +180,11 @@ exports.updateSeries = catchAsync(async (req, res) => {
 const getPublicIdFromUrl = (url) => {
     if (!url) return null;
     try {
-        // דוגמה לקישור: .../image/upload/v12345/torahfiles_uploads/file_name.pdf
         const parts = url.split('/');
         const uploadIndex = parts.indexOf('upload');
         if (uploadIndex === -1) return null;
 
-        // מחלץ את החלק של התיקייה ושם הקובץ (ללא הגרסה v12345)
         const publicIdWithExtension = parts.slice(uploadIndex + 2).join('/');
-        // הסרת הסיומת (כמו .pdf או .png)
         return publicIdWithExtension.split('.')[0];
     } catch (err) {
         return null;
@@ -204,7 +215,7 @@ exports.deleteSeries = catchAsync(async (req, res) => {
     // 3. מחיקת תמונת הכריכה של הסדרה עצמה מהענן (אם קיימת)
     if (series.coverImage) {
         const coverPublicId = getPublicIdFromUrl(series.coverImage);
-        console.log("ה-ID שחולץ עבור התמונה הוא:", coverPublicId); // <-- שורת בדיקה
+        console.log("ה-ID שחולץ עבור התמונה הוא:", coverPublicId);
         if (coverPublicId) {
             await cloudinary.uploader.destroy(coverPublicId);
         }

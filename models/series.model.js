@@ -5,7 +5,7 @@ const seriesSchema = new mongoose.Schema({
     prefixName: {
         type: String,
         trim: true,
-        enum: ["", "ספר זכרון", "קובץ זכרון", "קובץ תורני", "קובץ", "ספר", "ירחון", "ביטאון"],
+        enum: [ "","עלונים","קבצים בודדים","גנוזות וכתבי יד","קבצים משפחתיים","הספדים ודרשות","קבצי קהילות ובתי כנסת", "קבצי כוללים", "קבצי ישיבות", "ספרי קהילות", "כתבי עת ותקופונים", "ספרי זכרון ויובל"],
         default: ""
     },
     fileName: {
@@ -25,7 +25,6 @@ const seriesSchema = new mongoose.Schema({
         type: String,
         trim: true,
         default: "",
-        enum: ["", "ליטאי", "חסידי", "ספרדי", "דתי"]
     },
     catalogStatus: { type: String, trim: true, default: "טיוטה" },
     publicationYears: {
@@ -63,7 +62,7 @@ const seriesCreateSchema = Joi.object({
     details: Joi.string().trim().allow(''),
     editor: Joi.string().trim().allow(''),
     publicationPlace: Joi.string().trim().allow(''),
-    sector: Joi.string().valid("", "ליטאי", "חסידי", "ספרדי", "דתי").allow(''),
+    sector: Joi.string().allow(''),
     catalogStatus: Joi.string().default("טיוטה"),
     missingVolumesList: Joi.string().trim().allow(''),
     userNotes: Joi.string().trim().allow(''),

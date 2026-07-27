@@ -5,10 +5,9 @@ const subtitleSchema = new mongoose.Schema({
   serialNumber: {
     type: String,
     required: true,
-    trim: true,
-    uppercase: true
+    trim: true
   },
-  section: { // <-- התווסף לסכמה
+  section: {
     type: String,
     trim: true,
     default: ''
@@ -33,22 +32,33 @@ const subtitleSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  // ✅ הערה אחת בלבד - ללא linkExplanation
+  note: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   // הקישור הקריטי לגליון האב
   volume: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Volume',
     required: true
   },
+  // קישור ישיר לסדרה
+  series: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Series'
+  },
   continuationInNextVolume: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Volume',
     default: null
   },
+  // קישור למאמר אחר
   linkedArticleId: {
-    type: String,
-    trim: true,
-    enum: ['', 'בקורת', 'המשך', 'תגובה'],
-    default: ''
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subtitle',
+    default: null
   },
   authors: [{
     titlePrefix: { type: String, trim: true, default: '' },
@@ -58,8 +68,7 @@ const subtitleSchema = new mongoose.Schema({
   }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
   },
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -73,7 +82,8 @@ const subtitleSchema = new mongoose.Schema({
 
 // --- אינדקסים ו-Virtuals ---
 subtitleSchema.index({ contentTitle: 1 });
-subtitleSchema.index({ volume: 1 }); // אינדקס חדש לחיפוש מהיר לפי גליון
+subtitleSchema.index({ volume: 1 });
+subtitleSchema.index({ series: 1 });
 
 subtitleSchema.virtual('authorsDisplay').get(function () {
   if (!this.authors || this.authors.length === 0) return 'ללא מחבר';
@@ -86,15 +96,17 @@ subtitleSchema.virtual('authorsDisplay').get(function () {
 const objectId = Joi.string().pattern(/^[0-9a-fA-F]{24}$/, 'ObjectId');
 
 const subtitleCreateSchema = Joi.object({
-  serialNumber: Joi.string().trim().uppercase().required(),
-  section: Joi.string().trim().allow(''), // <-- התווסף לוולידציה של Joi
+  serialNumber: Joi.string().trim().required(),
+  section: Joi.string().trim().allow(''),
   contentTitle: Joi.string().trim().required(),
   source: Joi.string().trim().allow('', null),
   startPage: Joi.number().integer().min(1).allow(null),
   generalTopic: Joi.string().trim().allow(''),
-  volume: objectId.required(), // חובה בוולידציה
+  note: Joi.string().trim().allow(''),
+  volume: objectId.required(),
+  series: objectId.allow(null),
   continuationInNextVolume: objectId.allow(null),
-  linkedArticleId: Joi.string().valid('', 'בקורת', 'המשך', 'תגובה').allow(''),
+  linkedArticleId: objectId.allow(null),
   authors: Joi.array().items(
     Joi.object({
       titlePrefix: Joi.string().trim().allow(''),
@@ -103,10 +115,33 @@ const subtitleCreateSchema = Joi.object({
       role: Joi.string().trim().allow('')
     })
   ).default([]),
-  createdBy: objectId.required()
+  createdBy: objectId.optional()
+});
+
+const subtitleUpdateSchema = Joi.object({
+  serialNumber: Joi.string().trim().optional(),
+  section: Joi.string().trim().allow('').optional(),
+  contentTitle: Joi.string().trim().optional(),
+  source: Joi.string().trim().allow('', null).optional(),
+  startPage: Joi.number().integer().min(1).allow(null).optional(),
+  generalTopic: Joi.string().trim().allow('').optional(),
+  note: Joi.string().trim().allow('').optional(),
+  volume: objectId.optional(),
+  series: objectId.allow(null).optional(),
+  continuationInNextVolume: objectId.allow(null).optional(),
+  linkedArticleId: objectId.allow(null).optional(),
+  authors: Joi.array().items(
+    Joi.object({
+      titlePrefix: Joi.string().trim().allow('').optional(),
+      firstName: Joi.string().trim().allow('').optional(),
+      lastName: Joi.string().trim().allow('').optional(),
+      role: Joi.string().trim().allow('').optional()
+    })
+  ).optional()
 });
 
 subtitleSchema.statics.validateCreate = (obj) => subtitleCreateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
+subtitleSchema.statics.validateUpdate = (obj) => subtitleUpdateSchema.validate(obj, { abortEarly: false, stripUnknown: true });
 
 // --- Middleware ---
 subtitleSchema.pre('save', function (next) {

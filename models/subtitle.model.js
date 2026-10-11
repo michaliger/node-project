@@ -23,8 +23,7 @@ const subtitleSchema = new mongoose.Schema({
     default: null
   },
   startPage: {
-    type: Number,
-    min: 1,
+    type: Text,
     default: null
   },
   generalTopic: {
@@ -100,7 +99,7 @@ const subtitleCreateSchema = Joi.object({
   section: Joi.string().trim().allow(''),
   contentTitle: Joi.string().trim().required(),
   source: Joi.string().trim().allow('', null),
-  startPage: Joi.number().integer().min(1).allow(null),
+  startPage: Joi.text().allow(null),
   generalTopic: Joi.string().trim().allow(''),
   note: Joi.string().trim().allow(''),
   volume: objectId.required(),
@@ -123,7 +122,7 @@ const subtitleUpdateSchema = Joi.object({
   section: Joi.string().trim().allow('').optional(),
   contentTitle: Joi.string().trim().optional(),
   source: Joi.string().trim().allow('', null).optional(),
-  startPage: Joi.number().integer().min(1).allow(null).optional(),
+  startPage: Joi.text().allow(null).optional(),
   generalTopic: Joi.string().trim().allow('').optional(),
   note: Joi.string().trim().allow('').optional(),
   volume: objectId.optional(),

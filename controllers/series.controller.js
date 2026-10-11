@@ -61,108 +61,129 @@ exports.getSeriesBySlug = catchAsync(async (req, res) => {
 
 // יצירת סדרה חדשה או עדכון קיימת
 exports.createSeries = catchAsync(async (req, res) => {
-    const seriesData = JSON.parse(req.body.seriesData);
-    const volumesData = req.body.volumes ? JSON.parse(req.body.volumes) : [];
+    try {
+        const seriesData = JSON.parse(req.body.seriesData);
+        const volumesData = req.body.volumes ? JSON.parse(req.body.volumes) : [];
 
-    // שמירת הקישור הישיר מהענן עבור תמונת הכריכה
-    const coverFile = req.files && req.files.find(f => f.fieldname === 'coverImage');
-    if (coverFile) {
-        seriesData.coverImage = coverFile.path;
-    }
-
-    let savedSeries;
-
-    // בדיקה אם ה-ID של הסדרה תקין ועומד בתקן של מונגו (24 תווים)
-    if (seriesData._id && seriesData._id.length === 24) {
-        savedSeries = await Series.findByIdAndUpdate(seriesData._id, seriesData, { new: true });
-    } else {
-        // מונע בעיות של מזהים זמניים מהפרונטאנד
-        delete seriesData._id;
-        delete seriesData.id;
-        savedSeries = await Series.create(seriesData);
-    }
-
-    const currentVolumeIds = [];
-
-    for (let i = 0; i < volumesData.length; i++) {
-        const volData = volumesData[i];
-
-        // שמירת הקישור מהענן עבור קובץ ה-PDF
-        const pdfFile = req.files && req.files.find(f => f.fieldname === `pdfFile_${i}`);
-        if (pdfFile) {
-            volData.pdfPath = pdfFile.path;
+        // ✅ בדיקה שה-fileName קיים
+        if (!seriesData.fileName || seriesData.fileName.trim() === '') {
+            return res.status(400).json({ 
+                status: 'fail', 
+                message: 'שם הכותר (fileName) חובה ולא יכול להיות ריק' 
+            });
         }
 
-        volData.title = volData.volumeTitle || volData.title || `גליון ${volData.volumeNumber || (i + 1)}`;
-        volData.volumeNumber = parseInt(volData.volumeNumber) || (i + 1);
+        // שמירת הקישור הישיר מהענן עבור תמונת הכריכה
+        const coverFile = req.files && req.files.find(f => f.fieldname === 'coverImage');
+        if (coverFile) {
+            seriesData.coverImage = coverFile.path;
+        }
 
-        const articlesTemp = volData.articles || [];
-        volData.articles = [];
+        let savedSeries;
 
-        let savedVolume;
-        // בדיקה קפדנית של מזהה הגליון (תומך גם ב-_id וגם ב-id מהפרונטאנד)
-        const volumeId = volData._id || volData.id;
-        if (volumeId && volumeId.length === 24) {
-            savedVolume = await Volume.findByIdAndUpdate(volumeId, volData, { new: true });
+        // בדיקה אם ה-ID של הסדרה תקין ועומד בתקן של מונגו (24 תווים)
+        if (seriesData._id && seriesData._id.length === 24) {
+            savedSeries = await Series.findByIdAndUpdate(seriesData._id, seriesData, { new: true });
         } else {
-            // ניקוי מזהים זמניים כדי שמונגו ייצור מזהה ייחודי משלו
-            delete volData._id;
-            delete volData.id;
-            volData.series = savedSeries._id;
-            savedVolume = await Volume.create(volData);
+            // מונע בעיות של מזהים זמניים מהפרונטאנד
+            delete seriesData._id;
+            delete seriesData.id;
+            savedSeries = await Series.create(seriesData);
         }
-        currentVolumeIds.push(savedVolume._id);
 
-        if (articlesTemp.length > 0) {
-            const currentArticleIds = [];
-            for (let j = 0; j < articlesTemp.length; j++) {
-                const artData = articlesTemp[j];
-                if (!hasArticleContent(artData)) continue;
+        const currentVolumeIds = [];
 
-                // ✅ ניקוי וניסיון נכון של הנתונים
-                artData.contentTitle = artData.title || artData.contentTitle || 'ללא כותרת';
-                artData.section = artData.section || '';
-                let parsedPage = parseInt(artData.page || artData.startPage);
-                artData.startPage = (parsedPage && parsedPage >= 1) ? parsedPage : 1;
-                
-                // ✅ קישורים נכונים לסדרה וגליון
-                artData.volume = savedVolume._id;
-                artData.series = savedSeries._id;
-                
-                // ✅ createdBy צריך להיות משתמש
-                if (!artData.createdBy) {
-                    artData.createdBy = null;
-                }
-                
-                // ✅ serialNumber - למספור סדרתי
-                artData.serialNumber = artData.autoId ? artData.autoId.toString() : (j + 1).toString();
+        for (let i = 0; i < volumesData.length; i++) {
+            const volData = volumesData[i];
 
-                // ✅ linkedArticleId צריך להיות null אם ריק
-                if (!artData.linkedArticleId || artData.linkedArticleId === "") {
-                    artData.linkedArticleId = null;
-                }
-
-                // ✅ שדות חדשים - חשוב מאוד!
-                artData.note = artData.note || '';
-
-                let savedArticle;
-                const articleId = artData._id || artData.id;
-                if (articleId && articleId.length === 24) {
-                    savedArticle = await Article.findByIdAndUpdate(articleId, artData, { new: true });
-                } else {
-                    delete artData._id;
-                    delete artData.id;
-                    savedArticle = await Article.create(artData);
-                }
-                currentArticleIds.push(savedArticle._id);
+            // שמירת הקישור מהענן עבור קובץ ה-PDF
+            const pdfFile = req.files && req.files.find(f => f.fieldname === `pdfFile_${i}`);
+            if (pdfFile) {
+                volData.pdfPath = pdfFile.path;
             }
-            await Volume.findByIdAndUpdate(savedVolume._id, { articles: currentArticleIds });
+
+            volData.title = volData.volumeTitle || volData.title || `גליון ${volData.volumeNumber || (i + 1)}`;
+            volData.volumeNumber = parseInt(volData.volumeNumber) || (i + 1);
+
+            const articlesTemp = volData.articles || [];
+            volData.articles = [];
+
+            let savedVolume;
+            // בדיקה קפדנית של מזהה הגליון (תומך גם ב-_id וגם ב-id מהפרונטאנד)
+            const volumeId = volData._id || volData.id;
+            if (volumeId && volumeId.length === 24) {
+                savedVolume = await Volume.findByIdAndUpdate(volumeId, volData, { new: true });
+            } else {
+                // ניקוי מזהים זמניים כדי שמונגו ייצור מזהה ייחודי משלו
+                delete volData._id;
+                delete volData.id;
+                volData.series = savedSeries._id;
+                savedVolume = await Volume.create(volData);
+            }
+            currentVolumeIds.push(savedVolume._id);
+
+            if (articlesTemp.length > 0) {
+                const currentArticleIds = [];
+                for (let j = 0; j < articlesTemp.length; j++) {
+                    const artData = articlesTemp[j];
+                    if (!hasArticleContent(artData)) continue;
+
+                    try {
+                        // ✅ ניקוי וניסיון נכון של הנתונים
+                        artData.contentTitle = artData.title || artData.contentTitle || 'ללא כותרת';
+                        artData.section = artData.section || '';
+                        let parsedPage = parseInt(artData.page || artData.startPage);
+                        artData.startPage = (parsedPage && parsedPage >= 1) ? parsedPage : 1;
+                        
+                        // ✅ קישורים נכונים לסדרה וגליון
+                        artData.volume = savedVolume._id;
+                        artData.series = savedSeries._id;
+                        
+                        // ✅ createdBy צריך להיות משתמש
+                        if (!artData.createdBy) {
+                            artData.createdBy = null;
+                        }
+                        
+                        // ✅ serialNumber - מספר סידורי בגליון (1, 2, 3...)
+                        artData.serialNumber = (currentArticleIds.length + 1).toString();
+                        
+                        // ✅ linkedArticleId צריך להיות null אם ריק
+                        if (!artData.linkedArticleId || artData.linkedArticleId === "") {
+                            artData.linkedArticleId = null;
+                        }
+
+                        // ✅ הערה בלבד
+                        artData.note = artData.note || '';
+
+                        let savedArticle;
+                        const articleId = artData._id || artData.id;
+                        if (articleId && articleId.length === 24) {
+                            savedArticle = await Article.findByIdAndUpdate(articleId, artData, { new: true });
+                        } else {
+                            delete artData._id;
+                            delete artData.id;
+                            savedArticle = await Article.create(artData);
+                        }
+                        currentArticleIds.push(savedArticle._id);
+                    } catch (artError) {
+                        console.error(`שגיאה בשמירת מאמר בגליון ${i+1}:`, artError.message);
+                        throw new Error(`שגיאה בשמירת מאמר בגליון ${i+1}: ${artError.message}`);
+                    }
+                }
+                await Volume.findByIdAndUpdate(savedVolume._id, { articles: currentArticleIds });
+            }
         }
+
+        await Series.findByIdAndUpdate(savedSeries._id, { volumes: currentVolumeIds });
+
+        res.status(200).json({ status: 'success', data: { series: savedSeries } });
+    } catch (error) {
+        console.error('שגיאה בـ createSeries:', error);
+        res.status(500).json({ 
+            status: 'fail', 
+            message: error.message || 'שגיאה בעיבוד הנתונים'
+        });
     }
-
-    await Series.findByIdAndUpdate(savedSeries._id, { volumes: currentVolumeIds });
-
-    res.status(200).json({ status: 'success', data: { series: savedSeries } });
 });
 
 // עדכון סדרה

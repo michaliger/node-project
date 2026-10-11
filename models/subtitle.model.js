@@ -99,7 +99,7 @@ const subtitleCreateSchema = Joi.object({
   section: Joi.string().trim().allow(''),
   contentTitle: Joi.string().trim().required(),
   source: Joi.string().trim().allow('', null),
-  startPage: Joi.text().allow(null),
+  startPage: Joi.string().allow(null),
   generalTopic: Joi.string().trim().allow(''),
   note: Joi.string().trim().allow(''),
   volume: objectId.required(),

@@ -9,6 +9,7 @@ const volumeSchema = new mongoose.Schema({
   publicationMonth: { type: String, default: null },
   occasion: { type: String, trim: true, default: null },
   volumeEditor: { type: String, trim: true, default: null },
+  scanCompleteness: { type: String, trim: true, default: "" },
   pdfPath: { type: String, default: null },
   // מערך של ID של מאמרים
   articles: [{
@@ -39,6 +40,7 @@ const volumeCreateSchema = Joi.object({
   publicationMonth: Joi.string().allow('', null),
   occasion: Joi.string().trim().allow('', null),
   volumeEditor: Joi.string().trim().allow('', null),
+  scanCompleteness: Joi.string().trim().allow('', null),
   series: objectId.required(),
   createdBy: objectId.optional(),
   articles: Joi.array().items(objectId).default([])

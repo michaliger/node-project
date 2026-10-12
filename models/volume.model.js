@@ -65,6 +65,13 @@ volumeSchema.statics.validateUpdate = (obj) => volumeUpdateSchema.validate(obj, 
 volumeSchema.virtual('fullTitle').get(function () {
   return `גליון ${this.volumeNumber} - ${this.title || ''}`.trim();
 });
+volumeSchema.virtual('publicationPeriod').get(function () {
+  return this.publicationMonth;
+});
+
+volumeSchema.virtual('publishedFor').get(function () {
+  return this.occasion;
+});
 
 // עדכון הסדרה אוטומטית בעת יצירת גליון
 volumeSchema.pre('save', async function (next) {

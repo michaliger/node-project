@@ -101,6 +101,8 @@ exports.createSeries = catchAsync(async (req, res) => {
 
             volData.title = volData.volumeTitle || volData.title || `גליון ${volData.volumeNumber || (i + 1)}`;
             volData.volumeNumber = parseInt(volData.volumeNumber) || (i + 1);
+            volData.publicationMonth = volData.publicationPeriod || volData.publicationMonth || '';
+            volData.occasion = volData.publishedFor || volData.occasion || '';
 
             const articlesTemp = volData.articles || [];
             volData.articles = [];

@@ -4,13 +4,15 @@ const Volume = require('../models/volume.model');
 const Article = require('../models/subtitle.model');
 const catchAsync = require('../utils/catchAsync');
 const cloudinary = require('cloudinary').v2;
+
+// המפתחות עברו למשתני סביבה (ב-Render: Environment). ראי הסבר בהודעה.
 cloudinary.config({
-    cloud_name: 'zqgbyjp9',
-    api_key: '346468923129492',
-    api_secret: 'dWQxubxrZUdtO16oGASqCSXmGdQ'
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// פונקציה משופרת: בודקת אם יש ערך כלשהו במאמר
+// בודקת אם יש ערך כלשהו במאמר
 const hasArticleContent = (art) => {
     if (!art) return false;
 
@@ -65,15 +67,13 @@ exports.createSeries = catchAsync(async (req, res) => {
         const seriesData = JSON.parse(req.body.seriesData);
         const volumesData = req.body.volumes ? JSON.parse(req.body.volumes) : [];
 
-        // ✅ בדיקה שה-fileName קיים
         if (!seriesData.fileName || seriesData.fileName.trim() === '') {
-            return res.status(400).json({ 
-                status: 'fail', 
-                message: 'שם הכותר (fileName) חובה ולא יכול להיות ריק' 
+            return res.status(400).json({
+                status: 'fail',
+                message: 'שם הכותר (fileName) חובה ולא יכול להיות ריק'
             });
         }
 
-        // שמירת הקישור הישיר מהענן עבור תמונת הכריכה
         const coverFile = req.files && req.files.find(f => f.fieldname === 'coverImage');
         if (coverFile) {
             seriesData.coverImage = coverFile.path;
@@ -81,11 +81,9 @@ exports.createSeries = catchAsync(async (req, res) => {
 
         let savedSeries;
 
-        // בדיקה אם ה-ID של הסדרה תקין ועומד בתקן של מונגו (24 תווים)
         if (seriesData._id && seriesData._id.length === 24) {
             savedSeries = await Series.findByIdAndUpdate(seriesData._id, seriesData, { new: true });
         } else {
-            // מונע בעיות של מזהים זמניים מהפרונטאנד
             delete seriesData._id;
             delete seriesData.id;
             savedSeries = await Series.create(seriesData);
@@ -96,7 +94,6 @@ exports.createSeries = catchAsync(async (req, res) => {
         for (let i = 0; i < volumesData.length; i++) {
             const volData = volumesData[i];
 
-            // שמירת הקישור מהענן עבור קובץ ה-PDF
             const pdfFile = req.files && req.files.find(f => f.fieldname === `pdfFile_${i}`);
             if (pdfFile) {
                 volData.pdfPath = pdfFile.path;
@@ -109,12 +106,10 @@ exports.createSeries = catchAsync(async (req, res) => {
             volData.articles = [];
 
             let savedVolume;
-            // בדיקה קפדנית של מזהה הגליון (תומך גם ב-_id וגם ב-id מהפרונטאנד)
             const volumeId = volData._id || volData.id;
             if (volumeId && volumeId.length === 24) {
                 savedVolume = await Volume.findByIdAndUpdate(volumeId, volData, { new: true });
             } else {
-                // ניקוי מזהים זמניים כדי שמונגו ייצור מזהה ייחודי משלו
                 delete volData._id;
                 delete volData.id;
                 volData.series = savedSeries._id;
@@ -129,30 +124,25 @@ exports.createSeries = catchAsync(async (req, res) => {
                     if (!hasArticleContent(artData)) continue;
 
                     try {
-                        // ✅ ניקוי וניסיון נכון של הנתונים
                         artData.contentTitle = artData.title || artData.contentTitle || 'ללא כותרת';
                         artData.section = artData.section || '';
-                        let parsedPage = parseInt(artData.page || artData.startPage);
-                        artData.startPage = (parsedPage && parsedPage >= 1) ? parsedPage : 1;
-                        
-                        // ✅ קישורים נכונים לסדרה וגליון
+
+                        // ✅ התיקון: שומרים את מה שהוקלד (אות או מספר) כטקסט, בלי המרה ובלי ברירת מחדל 1
+                        artData.startPage = String(artData.startPage ?? artData.page ?? '').trim();
+
                         artData.volume = savedVolume._id;
                         artData.series = savedSeries._id;
-                        
-                        // ✅ createdBy צריך להיות משתמש
+
                         if (!artData.createdBy) {
                             artData.createdBy = null;
                         }
-                        
-                        // ✅ serialNumber - מספר סידורי בגליון (1, 2, 3...)
+
                         artData.serialNumber = (currentArticleIds.length + 1).toString();
-                        
-                        // ✅ linkedArticleId צריך להיות null אם ריק
+
                         if (!artData.linkedArticleId || artData.linkedArticleId === "") {
                             artData.linkedArticleId = null;
                         }
 
-                        // ✅ הערה בלבד
                         artData.note = artData.note || '';
 
                         let savedArticle;
@@ -166,8 +156,8 @@ exports.createSeries = catchAsync(async (req, res) => {
                         }
                         currentArticleIds.push(savedArticle._id);
                     } catch (artError) {
-                        console.error(`שגיאה בשמירת מאמר בגליון ${i+1}:`, artError.message);
-                        throw new Error(`שגיאה בשמירת מאמר בגליון ${i+1}: ${artError.message}`);
+                        console.error(`שגיאה בשמירת מאמר בגליון ${i + 1}:`, artError.message);
+                        throw new Error(`שגיאה בשמירת מאמר בגליון ${i + 1}: ${artError.message}`);
                     }
                 }
                 await Volume.findByIdAndUpdate(savedVolume._id, { articles: currentArticleIds });
@@ -178,9 +168,9 @@ exports.createSeries = catchAsync(async (req, res) => {
 
         res.status(200).json({ status: 'success', data: { series: savedSeries } });
     } catch (error) {
-        console.error('שגיאה בـ createSeries:', error);
-        res.status(500).json({ 
-            status: 'fail', 
+        console.error('שגיאה ב-createSeries:', error);
+        res.status(500).json({
+            status: 'fail',
             message: error.message || 'שגיאה בעיבוד הנתונים'
         });
     }
@@ -196,7 +186,6 @@ exports.updateSeries = catchAsync(async (req, res) => {
     res.status(200).json({ status: 'success', data: { series } });
 });
 
-// מחיקת סדרה
 // פונקציית עזר לחילוץ ה-Public ID מתוך הקישור של Cloudinary
 const getPublicIdFromUrl = (url) => {
     if (!url) return null;
@@ -217,15 +206,12 @@ exports.deleteSeries = catchAsync(async (req, res) => {
     const series = await Series.findById(req.params.id);
     if (!series) return res.status(404).json({ status: 'fail', message: 'לא נמצא' });
 
-    // 1. מציאת כל הגליונות המשויכים לסדרה זו כדי לקבל את קובצי ה-PDF שלהם
     const volumes = await Volume.find({ series: series._id });
 
-    // 2. מחיקת קובצי ה-PDF של כל הגליונות מהענן
     for (const vol of volumes) {
         if (vol.pdfPath) {
             const pdfPublicId = getPublicIdFromUrl(vol.pdfPath);
             if (pdfPublicId) {
-                // מחיקת קובץ raw (PDF) דורשת הגדרת resource_type: 'raw'
                 await cloudinary.uploader.destroy(pdfPublicId, { resource_type: 'raw' }).catch(err => {
                     console.error(`שגיאה במחיקת PDF מהענן: ${pdfPublicId}`, err);
                 });
@@ -233,16 +219,13 @@ exports.deleteSeries = catchAsync(async (req, res) => {
         }
     }
 
-    // 3. מחיקת תמונת הכריכה של הסדרה עצמה מהענן (אם קיימת)
     if (series.coverImage) {
         const coverPublicId = getPublicIdFromUrl(series.coverImage);
-        console.log("ה-ID שחולץ עבור התמונה הוא:", coverPublicId);
         if (coverPublicId) {
             await cloudinary.uploader.destroy(coverPublicId);
         }
     }
 
-    // 4. מחיקת הנתונים מבסיס הנתונים (MongoDB)
     const volumeIds = volumes.map(v => v._id);
     await Article.deleteMany({ volume: { $in: volumeIds } });
     await Volume.deleteMany({ series: series._id });

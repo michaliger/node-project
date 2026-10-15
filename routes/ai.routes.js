@@ -48,7 +48,7 @@ function parseJsonSafely(text) {
   const cleaned = (text || '').replace(/```json|```/g, '').trim();
   return JSON.parse(cleaned);
 }
-
+router.get('/ping', (req, res) => res.send('ai ok'));
 // כדי להגן על המכסה: הוסיפי כאן את ה-middleware שבודק שהמשתמש מחובר/מנהל
 // למשל: router.post('/extract-toc', protect, restrictToAdmin, upload.array(...), ...)
 router.post('/extract-toc', upload.array('files', 10), async (req, res) => {

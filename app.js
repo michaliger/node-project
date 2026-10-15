@@ -9,7 +9,9 @@ const seriesRoutes = require('./routes/series.routes');
 const volumeRoutes = require('./routes/volume.routes');
 const subtitleRoutes = require('./routes/subtitle.routes');
 const authRoutes = require('./routes/auth.routes');
+const aiRoutes = require('./routes/ai.routes');
 console.log('authRoutes:', authRoutes);
+console.log('aiRoutes:', aiRoutes);
 
 const cors = require('cors');
 
@@ -32,6 +34,7 @@ app.use('/api/series', seriesRoutes);
 app.use('/api/volumes', volumeRoutes);
 app.use('/api/subtitles', subtitleRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 – אם אין ראוט
 app.use((req, res) => {

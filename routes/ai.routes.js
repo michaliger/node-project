@@ -81,7 +81,6 @@ router.post('/extract-toc', upload.array('files', 10), async (req, res) => {
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: 'application/json',
         maxOutputTokens: 16000,
-        temperature: 0
       }
     });
 
